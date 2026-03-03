@@ -36,17 +36,17 @@ public class DeleteSync {
 
     void sync(AppConfig config) {
         // Fetch full current plex watchlist
-        Set<Item> plexWatchlist = new HashSet<>(plexService.getSelfWatchlist(config.plex));
-        if (!config.plex.skipFriendSync) {
-            plexWatchlist.addAll(plexService.getOthersWatchlist(config.plex));
+        Set<Item> plexWatchlist = new HashSet<>(plexService.getSelfWatchlist(config.plex()));
+        if (!config.plex().skipFriendSync()) {
+            plexWatchlist.addAll(plexService.getOthersWatchlist(config.plex()));
         }
-        for (var url : config.plex.watchlistUrls) {
+        for (var url : config.plex().watchlistUrls()) {
             plexWatchlist.addAll(plexService.fetchWatchlistFromRss(url));
         }
 
         // Fetch all items from Sonarr/Radarr (bypass=true: don't include exclusion list)
-        var movies = radarrService.fetchMovies(config.radarr, true);
-        var series = sonarrService.fetchSeries(config.sonarr, true);
+        var movies = radarrService.fetchMovies(config.radarr(), true);
+        var series = sonarrService.fetchSeries(config.sonarr(), true);
 
         for (var item : movies) {
             if (plexWatchlist.stream().anyMatch(p -> p.matches(item))) {
@@ -65,8 +65,8 @@ public class DeleteSync {
     }
 
     private void deleteMovie(AppConfig config, Item movie) {
-        if (config.delete.movieDeleting) {
-            radarrService.deleteFromRadarr(config.radarr, movie, config.delete.deleteFiles);
+        if (config.delete().movieDeleting()) {
+            radarrService.deleteFromRadarr(config.radarr(), movie, config.delete().deleteFiles());
         } else {
             log.info("Found movie \"{}\" which is not watchlisted on Plex", movie.title);
         }
@@ -75,10 +75,10 @@ public class DeleteSync {
     private void deleteSeries(AppConfig config, Item show) {
         boolean isEnded = Boolean.TRUE.equals(show.ended);
         boolean isContinuing = Boolean.FALSE.equals(show.ended);
-        if (isEnded && config.delete.endedShowDeleting) {
-            sonarrService.deleteFromSonarr(config.sonarr, show, config.delete.deleteFiles);
-        } else if (isContinuing && config.delete.continuingShowDeleting) {
-            sonarrService.deleteFromSonarr(config.sonarr, show, config.delete.deleteFiles);
+        if (isEnded && config.delete().endedShowDeleting()) {
+            sonarrService.deleteFromSonarr(config.sonarr(), show, config.delete().deleteFiles());
+        } else if (isContinuing && config.delete().continuingShowDeleting()) {
+            sonarrService.deleteFromSonarr(config.sonarr(), show, config.delete().deleteFiles());
         } else {
             log.info("Found show \"{}\" which is not watchlisted on Plex", show.title);
         }

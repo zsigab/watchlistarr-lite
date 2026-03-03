@@ -8,15 +8,11 @@ import org.slf4j.LoggerFactory;
 import watchlistarr.config.RadarrConfig;
 import watchlistarr.http.HttpService;
 import watchlistarr.model.Item;
-import watchlistarr.radarr.model.AddOptions;
 import watchlistarr.radarr.model.RadarrMovie;
 import watchlistarr.radarr.model.RadarrMovieExclusion;
 import watchlistarr.radarr.model.RadarrPost;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @ApplicationScoped
 public class RadarrService {
@@ -26,14 +22,14 @@ public class RadarrService {
     @Inject HttpService http;
 
     public Set<Item> fetchMovies(RadarrConfig config, boolean bypass) {
-        var movies = getArr(config.baseUrl, config.apiKey, "movie", new TypeReference<List<RadarrMovie>>() {});
+        var movies = getArr(config.baseUrl(), config.apiKey(), "movie", new TypeReference<List<RadarrMovie>>() {});
         var exclusions = bypass
             ? List.<RadarrMovieExclusion>of()
-            : getArr(config.baseUrl, config.apiKey, "exclusions", new TypeReference<List<RadarrMovieExclusion>>() {});
+            : getArr(config.baseUrl(), config.apiKey(), "exclusions", new TypeReference<List<RadarrMovieExclusion>>() {});
 
         var result = new HashSet<Item>();
-        movies.stream().map(this::toItem).forEach(result::add);
-        exclusions.stream().map(this::toMovieItem).forEach(result::add);
+        Objects.requireNonNull(movies).stream().map(this::toItem).forEach(result::add);
+        Objects.requireNonNull(exclusions).stream().map(this::toMovieItem).forEach(result::add);
         return result;
     }
 
@@ -41,11 +37,11 @@ public class RadarrService {
         var post = new RadarrPost(
             item.title,
             item.getTmdbId().orElse(0L),
-            config.qualityProfileId,
-            config.rootFolder,
-            new ArrayList<>(config.tagIds)
+                config.qualityProfileId(),
+                config.rootFolder(),
+            new ArrayList<>(config.tagIds())
         );
-        var result = http.post(config.baseUrl + "/api/v3/movie", config.apiKey, post);
+        var result = http.post(config.baseUrl() + "/api/v3/movie", config.apiKey(), post);
         if (result.isPresent()) {
             log.info("Sent {} to Radarr", item.title);
         } else {
@@ -58,9 +54,9 @@ public class RadarrService {
             log.warn("Unable to extract Radarr ID from movie to delete: {}", item);
             return 0L;
         });
-        var url = config.baseUrl + "/api/v3/movie/" + id
+        var url = config.baseUrl() + "/api/v3/movie/" + id
             + "?deleteFiles=" + deleteFiles + "&addImportExclusion=false";
-        http.delete(url, config.apiKey);
+        http.delete(url, config.apiKey());
         log.info("Deleted {} from Radarr", item.title);
     }
 

@@ -39,24 +39,24 @@ public class FullSync {
         Set<Item> watchlist = new HashSet<>();
 
         if (runFullSync) {
-            var self = plexService.getSelfWatchlist(config.plex);
+            var self = plexService.getSelfWatchlist(config.plex());
             log.info("Found {} items on user's watchlist using the plex token", self.size());
             watchlist.addAll(self);
 
-            if (!config.plex.skipFriendSync) {
-                var others = plexService.getOthersWatchlist(config.plex);
+            if (!config.plex().skipFriendSync()) {
+                var others = plexService.getOthersWatchlist(config.plex());
                 log.info("Found {} items on other available watchlists using the plex token", others.size());
                 watchlist.addAll(others);
             }
         }
 
-        for (var url : config.plex.watchlistUrls) {
+        for (var url : config.plex().watchlistUrls()) {
             watchlist.addAll(plexService.fetchWatchlistFromRss(url));
         }
 
         // Fetch existing items from Sonarr and Radarr
-        var existingMovies = radarrService.fetchMovies(config.radarr, config.radarr.bypassIgnored);
-        var existingSeries = sonarrService.fetchSeries(config.sonarr, config.sonarr.bypassIgnored);
+        var existingMovies = radarrService.fetchMovies(config.radarr(), config.radarr().bypassIgnored());
+        var existingSeries = sonarrService.fetchSeries(config.sonarr(), config.sonarr().bypassIgnored());
         var existingAll = new HashSet<Item>();
         existingAll.addAll(existingMovies);
         existingAll.addAll(existingSeries);
@@ -72,7 +72,7 @@ public class FullSync {
                 case "show" -> {
                     if (watched.getTvdbId().isPresent()) {
                         log.debug("Found show \"{}\" which does not exist yet in Sonarr", watched.title);
-                        sonarrService.addToSonarr(config.sonarr, watched);
+                        sonarrService.addToSonarr(config.sonarr(), watched);
                     } else {
                         log.debug("Found show \"{}\" with no tvdb ID, skipping", watched.title);
                     }
@@ -80,7 +80,7 @@ public class FullSync {
                 case "movie" -> {
                     if (watched.getTmdbId().isPresent()) {
                         log.debug("Found movie \"{}\" which does not exist yet in Radarr", watched.title);
-                        radarrService.addToRadarr(config.radarr, watched);
+                        radarrService.addToRadarr(config.radarr(), watched);
                     } else {
                         log.debug("Found movie \"{}\" with no tmdb ID, skipping", watched.title);
                     }

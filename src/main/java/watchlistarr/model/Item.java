@@ -37,8 +37,12 @@ public class Item {
     }
 
     public boolean matches(Item that) {
-        if (that == null || !Objects.equals(this.category, that.category)) return false;
-        if (that.guids == null || this.guids == null) return false;
+        if (that == null || !Objects.equals(this.category, that.category)) {
+            return false;
+        }
+        if (that.guids == null || this.guids == null) {
+            return false;
+        }
         return that.guids.stream().anyMatch(guid -> this.guids.contains(guid));
     }
 

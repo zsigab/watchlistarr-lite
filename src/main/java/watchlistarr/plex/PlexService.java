@@ -24,7 +24,7 @@ public class PlexService {
     // ── Ping ─────────────────────────────────────────────────────────────────
 
     public void ping(PlexConfig config) {
-        for (var token : config.tokens) {
+        for (var token : config.tokens()) {
             var url = "https://plex.tv/api/v2/ping?X-Plex-Token=" + token + "&X-Plex-Client-Identifier=watchlistarr";
             var result = http.get(url);
             if (result.isPresent()) {
@@ -58,7 +58,7 @@ public class PlexService {
 
     public Set<Item> getSelfWatchlist(PlexConfig config) {
         Set<Item> all = new HashSet<>();
-        for (var token : config.tokens) {
+        for (var token : config.tokens()) {
             all.addAll(getSelfWatchlistForToken(config, token, 0));
         }
         return all;
@@ -107,9 +107,10 @@ public class PlexService {
 
     private Map<User, String> getFriends(PlexConfig config) {
         Map<User, String> friends = new LinkedHashMap<>();
-        for (var token : config.tokens) {
+        for (var token : config.tokens()) {
             var url = "https://community.plex.tv/api";
-            var query = new GraphQLQuery("""
+            var query = new GraphQLQuery(
+                """
                 query GetAllFriends {
                   allFriendsV2 {
                     user { id username }
@@ -152,9 +153,9 @@ public class PlexService {
         try {
             var response = http.getMapper().treeToValue(result.get(), TokenWatchlistFriend.class);
             var watchlist = response.data.user.watchlist;
-            var items = new HashSet<>(watchlist.nodes.stream()
-                .map(WatchlistNode::toTokenWatchlistItem)
-                .collect(Collectors.toSet()));
+            var items = watchlist.nodes.stream()
+                    .map(WatchlistNode::toTokenWatchlistItem)
+                    .collect(Collectors.toCollection(HashSet::new));
             if (watchlist.pageInfo.hasNextPage && watchlist.pageInfo.endCursor != null && !watchlist.pageInfo.endCursor.isBlank()) {
                 items.addAll(getWatchlistIdsForUser(config, token, user, watchlist.pageInfo.endCursor));
             }
@@ -185,7 +186,7 @@ public class PlexService {
 
     private Item resolveItem(PlexConfig config, TokenWatchlistItem raw) {
         var key = cleanKey(raw.key);
-        var token = config.tokens.stream().findFirst().orElse("unknown");
+        var token = config.tokens().stream().findFirst().orElse("unknown");
         var url = "https://discover.provider.plex.tv" + key + "?X-Plex-Token=" + token;
         var result = http.get(url);
         if (result.isEmpty()) throw new RuntimeException("No response from Plex metadata for " + raw.title);
