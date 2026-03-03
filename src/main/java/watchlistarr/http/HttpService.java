@@ -108,29 +108,45 @@ public class HttpService {
             }
             return Optional.of(mapper.readTree(responseBody));
 
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("HTTP request failed [{} {}]: {}", method, url, e.getMessage());
             return Optional.empty();
         }
     }
 
     private String serializeBody(Object body) {
-        if (body == null) return null;
-        if (body instanceof String s) return s;
+        if (body == null) {
+            return null;
+        }
+        if (body instanceof String s) {
+            return s;
+        }
         try {
             return mapper.writeValueAsString(body);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to serialize request body: {}", e.getMessage());
             return null;
         }
     }
 
     record CacheKey(String method, String url, String apiKey, String body) {
-        @Override public boolean equals(Object o) {
-            if (!(o instanceof CacheKey k)) return false;
-            return Objects.equals(method, k.method) && Objects.equals(url, k.url)
-                && Objects.equals(apiKey, k.apiKey) && Objects.equals(body, k.body);
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return Objects.equals(url, cacheKey.url) &&
+                    Objects.equals(body, cacheKey.body) &&
+                    Objects.equals(method, cacheKey.method) &&
+                    Objects.equals(apiKey, cacheKey.apiKey);
         }
-        @Override public int hashCode() { return Objects.hash(method, url, apiKey, body); }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(method, url, apiKey, body);
+        }
     }
 }

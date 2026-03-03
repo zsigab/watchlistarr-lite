@@ -12,11 +12,7 @@ import watchlistarr.sonarr.model.SonarrAddOptions;
 import watchlistarr.sonarr.model.SonarrPost;
 import watchlistarr.sonarr.model.SonarrSeries;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @ApplicationScoped
 public class SonarrService {
@@ -26,29 +22,29 @@ public class SonarrService {
     @Inject HttpService http;
 
     public Set<Item> fetchSeries(SonarrConfig config, boolean bypass) {
-        var shows = getArr(config.baseUrl, config.apiKey, "series", new TypeReference<List<SonarrSeries>>() {});
+        var shows = getArr(config.baseUrl(), config.apiKey(), "series", new TypeReference<List<SonarrSeries>>() {});
         var exclusions = bypass
             ? List.<SonarrSeries>of()
-            : getArr(config.baseUrl, config.apiKey, "importlistexclusion", new TypeReference<List<SonarrSeries>>() {});
+            : getArr(config.baseUrl(), config.apiKey(), "importlistexclusion", new TypeReference<List<SonarrSeries>>() {});
 
         var result = new HashSet<Item>();
-        shows.stream().map(this::toItem).forEach(result::add);
-        exclusions.stream().map(this::toItem).forEach(result::add);
+        Objects.requireNonNull(shows).stream().map(this::toItem).forEach(result::add);
+        Objects.requireNonNull(exclusions).stream().map(this::toItem).forEach(result::add);
         return result;
     }
 
     public void addToSonarr(SonarrConfig config, Item item) {
-        var addOptions = new SonarrAddOptions(config.seasonMonitoring);
+        var addOptions = new SonarrAddOptions(config.seasonMonitoring());
         var post = new SonarrPost(
             item.title,
             item.getTvdbId().orElse(0L),
-            config.qualityProfileId,
-            config.rootFolder,
+                config.qualityProfileId(),
+                config.rootFolder(),
             addOptions,
-            config.languageProfileId,
-            new ArrayList<>(config.tagIds)
+                config.languageProfileId(),
+            new ArrayList<>(config.tagIds())
         );
-        var result = http.post(config.baseUrl + "/api/v3/series", config.apiKey, post);
+        var result = http.post(config.baseUrl() + "/api/v3/series", config.apiKey(), post);
         if (result.isPresent()) {
             log.info("Sent {} to Sonarr", item.title);
         } else {
@@ -61,9 +57,9 @@ public class SonarrService {
             log.warn("Unable to extract Sonarr ID from show to delete: {}", item);
             return 0L;
         });
-        var url = config.baseUrl + "/api/v3/series/" + id
+        var url = config.baseUrl() + "/api/v3/series/" + id
             + "?deleteFiles=" + deleteFiles + "&addImportListExclusion=false";
-        http.delete(url, config.apiKey);
+        http.delete(url, config.apiKey());
         log.info("Deleted {} from Sonarr", item.title);
     }
 

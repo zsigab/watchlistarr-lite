@@ -19,7 +19,7 @@ public class PingSync {
     @Scheduled(every = "24H", delayed = "0s")
     void run() {
         try {
-            plexService.ping(configService.get().plex);
+            plexService.ping(configService.get().plex());
         } catch (Exception e) {
             log.warn("Ping sync error: {}", e.getMessage());
         }
