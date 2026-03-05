@@ -1,0 +1,99 @@
+## Watchlistarr Configuration
+## Uncomment and fill in the values you want to configure, then restart Watchlistarr.
+## Environment variables take precedence over this file (e.g. SONARR_API_KEY overrides sonarr.apikey).
+
+#interval:
+## How often to sync from Plex, in seconds. Ignored if you don't have Plex Pass (falls back to ~19 minute syncs).
+#  seconds: 60
+
+
+#################################################################
+## Sonarr Configuration
+#################################################################
+
+#sonarr:
+## Base URL for Sonarr, including port. DEFAULT: auto-detected on localhost:8989
+#  baseUrl: "localhost:8989"
+
+## API key — found in Sonarr UI → Settings → General
+#  apikey: "YOUR-API-KEY"
+
+## Quality profile name. If not set, uses the first profile found.
+#  qualityProfile: "HD - 720p/1080p"
+
+## Root folder. If not set, uses the first accessible folder found.
+#  rootFolder: "/media/Series"
+
+## Bypass the Sonarr exclusion list. DEFAULT: false
+#  bypassIgnored: false
+
+## Episode monitoring mode. See sonarr.tv/docs/api MonitorTypes. DEFAULT: all
+#  seasonMonitoring: all
+
+## Tags to attach when adding shows.
+#  tags:
+#    - watchlistarr
+
+
+#################################################################
+## Radarr Configuration
+#################################################################
+
+#radarr:
+## Base URL for Radarr, including port. DEFAULT: auto-detected on localhost:7878
+#  baseUrl: "localhost:7878"
+
+## API key — found in Radarr UI → Settings → General
+#  apikey: "YOUR-API-KEY"
+
+## Quality profile name. If not set, uses the first profile found.
+#  qualityProfile: "HD - 720p/1080p"
+
+## Root folder. If not set, uses the first accessible folder found.
+#  rootFolder: "/media/Movies"
+
+## Bypass the Radarr exclusion list. DEFAULT: false
+#  bypassIgnored: false
+
+## Tags to attach when adding movies.
+#  tags:
+#    - watchlistarr
+
+
+#################################################################
+## Plex Configuration
+#################################################################
+
+#plex:
+## Your Plex token. Multiple tokens can be comma-separated.
+#  token: "YOUR-PLEX-TOKEN"
+
+## Skip syncing friends' watchlists, only sync your own. DEFAULT: false
+#  skipfriendsync: false
+
+## Legacy RSS watchlist URLs (optional, only needed if token-based sync doesn't work)
+#  watchlist1: ""
+#  watchlist2: ""
+
+
+#################################################################
+## Delete Sync Configuration
+#################################################################
+
+## WARNING: enabling delete will remove content from Sonarr/Radarr (and optionally disk).
+
+#delete:
+## Delete movies from Radarr when removed from watchlist. DEFAULT: false
+#  movie: false
+
+## Delete ended shows from Sonarr when removed from watchlist. DEFAULT: false
+#  endedShow: false
+
+## Delete continuing shows from Sonarr when removed from watchlist. DEFAULT: false
+#  continuingShow: false
+
+## Days to wait before deleting after removal from watchlist. DEFAULT: 7
+#  interval.days: 7
+
+## Also delete files from disk when deleting from Sonarr/Radarr. DEFAULT: true
+#  deleteFiles: true

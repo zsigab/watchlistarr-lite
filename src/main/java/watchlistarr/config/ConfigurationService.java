@@ -31,39 +31,41 @@ public class ConfigurationService {
     @ConfigProperty(name = "sonarr.base-url")          Optional<String> sonarrBaseUrl;
     @ConfigProperty(name = "sonarr.quality-profile")   Optional<String> sonarrQualityProfile;
     @ConfigProperty(name = "sonarr.root-folder")       Optional<String> sonarrRootFolder;
-    @ConfigProperty(name = "sonarr.bypass-ignored",    defaultValue = "false") boolean sonarrBypassIgnored;
-    @ConfigProperty(name = "sonarr.season-monitoring", defaultValue = "all") String sonarrSeasonMonitoring;
+    @ConfigProperty(name = "sonarr.bypass-ignored")    Optional<String> sonarrBypassIgnored;
+    @ConfigProperty(name = "sonarr.season-monitoring") Optional<String> sonarrSeasonMonitoring;
     @ConfigProperty(name = "sonarr.tags")              Optional<String> sonarrTags;
 
     // Radarr raw config
-    @ConfigProperty(name = "radarr.api-key")         Optional<String> radarrApiKey;
-    @ConfigProperty(name = "radarr.base-url")         Optional<String> radarrBaseUrl;
-    @ConfigProperty(name = "radarr.quality-profile")  Optional<String> radarrQualityProfile;
-    @ConfigProperty(name = "radarr.root-folder")      Optional<String> radarrRootFolder;
-    @ConfigProperty(name = "radarr.bypass-ignored",   defaultValue = "false") boolean radarrBypassIgnored;
-    @ConfigProperty(name = "radarr.tags")             Optional<String> radarrTags;
+    @ConfigProperty(name = "radarr.api-key")           Optional<String> radarrApiKey;
+    @ConfigProperty(name = "radarr.base-url")           Optional<String> radarrBaseUrl;
+    @ConfigProperty(name = "radarr.quality-profile")    Optional<String> radarrQualityProfile;
+    @ConfigProperty(name = "radarr.root-folder")        Optional<String> radarrRootFolder;
+    @ConfigProperty(name = "radarr.bypass-ignored")     Optional<String> radarrBypassIgnored;
+    @ConfigProperty(name = "radarr.tags")               Optional<String> radarrTags;
 
     // Plex raw config
-    @ConfigProperty(name = "plex.token")            Optional<String> plexToken;
-    @ConfigProperty(name = "plex.watchlist1")        Optional<String> plexWatchlist1;
-    @ConfigProperty(name = "plex.watchlist2")        Optional<String> plexWatchlist2;
-    @ConfigProperty(name = "plex.skip-friend-sync",  defaultValue = "false") boolean skipFriendSync;
+    @ConfigProperty(name = "plex.token")               Optional<String> plexToken;
+    @ConfigProperty(name = "plex.watchlist1")           Optional<String> plexWatchlist1;
+    @ConfigProperty(name = "plex.watchlist2")           Optional<String> plexWatchlist2;
+    @ConfigProperty(name = "plex.skip-friend-sync")     Optional<String> skipFriendSync;
 
     // Delete config
-    @ConfigProperty(name = "delete.movie",            defaultValue = "false") boolean deleteMovie;
-    @ConfigProperty(name = "delete.ended-show",        defaultValue = "false") boolean deleteEndedShow;
-    @ConfigProperty(name = "delete.continuing-show",   defaultValue = "false") boolean deleteContinuingShow;
-    @ConfigProperty(name = "delete.interval-days",     defaultValue = "7") long deleteIntervalDays;
-    @ConfigProperty(name = "delete.delete-files",      defaultValue = "true") boolean deleteFiles;
+    @ConfigProperty(name = "delete.movie")              Optional<String> deleteMovie;
+    @ConfigProperty(name = "delete.ended-show")         Optional<String> deleteEndedShow;
+    @ConfigProperty(name = "delete.continuing-show")    Optional<String> deleteContinuingShow;
+    @ConfigProperty(name = "delete.interval-days")      Optional<String> deleteIntervalDays;
+    @ConfigProperty(name = "delete.delete-files")       Optional<String> deleteFiles;
 
     // Refresh
-    @ConfigProperty(name = "refresh.interval-seconds", defaultValue = "60") long refreshIntervalSeconds;
+    @ConfigProperty(name = "refresh.interval-seconds")  Optional<String> refreshIntervalSeconds;
 
+    private ConfigFileLoader fileLoader;
     private AppConfig appConfig;
 
     @PostConstruct
     void init() {
         log.info("Initialising configuration...");
+        fileLoader = ConfigFileLoader.load();
         try {
             appConfig = resolve();
             log.info(redact(appConfig));
@@ -83,41 +85,50 @@ public class ConfigurationService {
         var tokens = parsePlexTokens();
         var watchlistUrls = resolvePlexWatchlistUrls(tokens);
         boolean hasPlexPass = !watchlistUrls.isEmpty();
-        long effectiveInterval = hasPlexPass ? refreshIntervalSeconds : 19 * 60;
+        long effectiveInterval = hasPlexPass ? lng(refreshIntervalSeconds, "refresh.interval-seconds", 60) : 19 * 60;
 
         return new AppConfig(
             effectiveInterval,
             sonarr,
             radarr,
-            new PlexConfig(watchlistUrls, tokens, skipFriendSync, hasPlexPass),
-            new DeleteConfig(deleteMovie, deleteEndedShow, deleteContinuingShow, deleteIntervalDays, deleteFiles)
+            new PlexConfig(watchlistUrls, tokens, bool(skipFriendSync, "plex.skip-friend-sync", false), hasPlexPass),
+            new DeleteConfig(
+                bool(deleteMovie,          "delete.movie",            false),
+                bool(deleteEndedShow,      "delete.ended-show",       false),
+                bool(deleteContinuingShow, "delete.continuing-show",  false),
+                lng(deleteIntervalDays,    "delete.interval-days",    7),
+                bool(deleteFiles,          "delete.delete-files",     true)
+            )
         );
     }
 
     private SonarrConfig resolveSonarr() {
-        var apiKey = sonarrApiKey.orElse("");
+        var apiKey = str(sonarrApiKey, "sonarr.api-key", "");
         if (apiKey.isBlank()) error("Unable to find Sonarr API key");
-        var url = findCorrectUrl(buildCandidateUrls(sonarrBaseUrl.orElse(""), 8989), apiKey, 8989);
+        var url = findCorrectUrl(buildCandidateUrls(str(sonarrBaseUrl, "sonarr.base-url", ""), 8989), apiKey, 8989);
 
-        var rootFolder = fetchRootFolder(url, apiKey, sonarrRootFolder.orElse(""), "Sonarr");
-        var qualityProfileId = fetchQualityProfile(url, apiKey, sonarrQualityProfile.orElse(""), "Sonarr");
+        var rootFolder = fetchRootFolder(url, apiKey, str(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
+        var qualityProfileId = fetchQualityProfile(url, apiKey, str(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
         var languageProfileId = fetchLanguageProfile(url, apiKey);
-        var tagIds = resolveTags(url, apiKey, sonarrTags.orElse(""));
+        var tagIds = resolveTags(url, apiKey, str(sonarrTags, "sonarr.tags", ""));
         log.info("Successfully connected to Sonarr at {}", url);
         return new SonarrConfig(url, apiKey, qualityProfileId, rootFolder,
-            sonarrBypassIgnored, sonarrSeasonMonitoring, languageProfileId, tagIds);
+            bool(sonarrBypassIgnored, "sonarr.bypass-ignored", false),
+            str(sonarrSeasonMonitoring, "sonarr.season-monitoring", "all"),
+            languageProfileId, tagIds);
     }
 
     private RadarrConfig resolveRadarr() {
-        var apiKey = radarrApiKey.orElse("");
+        var apiKey = str(radarrApiKey, "radarr.api-key", "");
         if (apiKey.isBlank()) error("Unable to find Radarr API key");
-        var url = findCorrectUrl(buildCandidateUrls(radarrBaseUrl.orElse(""), 7878), apiKey, 7878);
+        var url = findCorrectUrl(buildCandidateUrls(str(radarrBaseUrl, "radarr.base-url", ""), 7878), apiKey, 7878);
 
-        var rootFolder = fetchRootFolder(url, apiKey, radarrRootFolder.orElse(""), "Radarr");
-        var qualityProfileId = fetchQualityProfile(url, apiKey, radarrQualityProfile.orElse(""), "Radarr");
-        var tagIds = resolveTags(url, apiKey, radarrTags.orElse(""));
+        var rootFolder = fetchRootFolder(url, apiKey, str(radarrRootFolder, "radarr.root-folder", ""), "Radarr");
+        var qualityProfileId = fetchQualityProfile(url, apiKey, str(radarrQualityProfile, "radarr.quality-profile", ""), "Radarr");
+        var tagIds = resolveTags(url, apiKey, str(radarrTags, "radarr.tags", ""));
         log.info("Successfully connected to Radarr at {}", url);
-        return new RadarrConfig(url, apiKey, qualityProfileId, rootFolder, radarrBypassIgnored, tagIds);
+        return new RadarrConfig(url, apiKey, qualityProfileId, rootFolder,
+            bool(radarrBypassIgnored, "radarr.bypass-ignored", false), tagIds);
     }
 
     // ── URL probing ───────────────────────────────────────────────────────────
@@ -239,7 +250,7 @@ public class ConfigurationService {
     // ── Plex helpers ──────────────────────────────────────────────────────────
 
     private Set<String> parsePlexTokens() {
-        var token = plexToken.orElse("");
+        var token = str(plexToken, "plex.token", "");
         if (token.isBlank()) { log.warn("Missing plex token"); return Set.of(); }
         return Arrays.stream(token.split(",")).map(String::trim).filter(t -> !t.isBlank())
             .collect(Collectors.toSet());
@@ -247,13 +258,14 @@ public class ConfigurationService {
 
     private Set<String> resolvePlexWatchlistUrls(Set<String> tokens) {
         Set<String> urls = new LinkedHashSet<>();
-        // Legacy URLs from direct config
-        plexWatchlist1.filter(u -> !u.isBlank() && isValidPlexRssUrl(u)).ifPresent(urls::add);
-        plexWatchlist2.filter(u -> !u.isBlank() && isValidPlexRssUrl(u)).ifPresent(urls::add);
+        var w1 = str(plexWatchlist1, "plex.watchlist1", "");
+        var w2 = str(plexWatchlist2, "plex.watchlist2", "");
+        if (!w1.isBlank() && isValidPlexRssUrl(w1)) urls.add(w1);
+        if (!w2.isBlank() && isValidPlexRssUrl(w2)) urls.add(w2);
 
         for (var token : tokens) {
             generateRssUrl(token, "watchlist").ifPresent(u -> { log.info("Generated watchlist RSS feed for self: {}", u); urls.add(u); });
-            if (!skipFriendSync)
+            if (!bool(skipFriendSync, "plex.skip-friend-sync", false))
                 generateRssUrl(token, "friendsWatchlist").ifPresent(u -> { log.info("Generated watchlist RSS feed for friends: {}", u); urls.add(u); });
         }
 
@@ -326,6 +338,28 @@ Configuration:
                 c.delete().movieDeleting(), c.delete().endedShowDeleting(), c.delete().continuingShowDeleting(),
                 c.delete().deleteIntervalDays(), c.delete().deleteFiles()
         );
+    }
+
+    // ── Config merge helpers (env var > config file > default) ────────────────
+
+    private String str(Optional<String> env, String fileKey, String def) {
+        return env.filter(s -> !s.isBlank())
+            .or(() -> fileLoader.get(fileKey))
+            .orElse(def);
+    }
+
+    private boolean bool(Optional<String> env, String fileKey, boolean def) {
+        return env.filter(s -> !s.isBlank())
+            .or(() -> fileLoader.get(fileKey))
+            .map(Boolean::parseBoolean)
+            .orElse(def);
+    }
+
+    private long lng(Optional<String> env, String fileKey, long def) {
+        return env.filter(s -> !s.isBlank())
+            .or(() -> fileLoader.get(fileKey))
+            .map(Long::parseLong)
+            .orElse(def);
     }
 
     private <T> T error(String msg) {

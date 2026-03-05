@@ -13,4 +13,5 @@ COPY --from=build /app/target/quarkus-app/lib/ ./lib/
 COPY --from=build /app/target/quarkus-app/*.jar ./
 COPY --from=build /app/target/quarkus-app/app/ ./app/
 COPY --from=build /app/target/quarkus-app/quarkus/ ./quarkus/
+VOLUME ["/config"]
 ENTRYPOINT ["java", "-Xmx100m", "-jar", "/app/quarkus-run.jar"]
