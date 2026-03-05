@@ -1,6 +1,7 @@
 package watchlistarr.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -69,7 +70,8 @@ public class ConfigurationService {
         try {
             appConfig = resolve();
             log.info(redact(appConfig));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("Failed to initialise configuration: {}", e.getMessage());
             throw new RuntimeException("Configuration initialisation failed", e);
         }
@@ -80,10 +82,10 @@ public class ConfigurationService {
     // ── Resolution ────────────────────────────────────────────────────────────
 
     private AppConfig resolve() {
-        var sonarr = resolveSonarr();
-        var radarr = resolveRadarr();
-        var tokens = parsePlexTokens();
-        var watchlistUrls = resolvePlexWatchlistUrls(tokens);
+        SonarrConfig sonarr = resolveSonarr();
+        RadarrConfig radarr = resolveRadarr();
+        Set<String> tokens = parsePlexTokens();
+        Set<String> watchlistUrls = resolvePlexWatchlistUrls(tokens);
         boolean hasPlexPass = !watchlistUrls.isEmpty();
         long effectiveInterval = hasPlexPass ? lng(refreshIntervalSeconds, "refresh.interval-seconds", 60) : 19 * 60;
 
@@ -103,14 +105,16 @@ public class ConfigurationService {
     }
 
     private SonarrConfig resolveSonarr() {
-        var apiKey = str(sonarrApiKey, "sonarr.api-key", "");
-        if (apiKey.isBlank()) error("Unable to find Sonarr API key");
-        var url = findCorrectUrl(buildCandidateUrls(str(sonarrBaseUrl, "sonarr.base-url", ""), 8989), apiKey, 8989);
+        String apiKey = str(sonarrApiKey, "sonarr.api-key", "");
+        if (apiKey.isBlank()) {
+            error("Unable to find Sonarr API key");
+        }
+        String url = findCorrectUrl(buildCandidateUrls(str(sonarrBaseUrl, "sonarr.base-url", ""), 8989), apiKey, 8989);
 
-        var rootFolder = fetchRootFolder(url, apiKey, str(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
-        var qualityProfileId = fetchQualityProfile(url, apiKey, str(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
-        var languageProfileId = fetchLanguageProfile(url, apiKey);
-        var tagIds = resolveTags(url, apiKey, str(sonarrTags, "sonarr.tags", ""));
+        String rootFolder = fetchRootFolder(url, apiKey, str(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
+        int qualityProfileId = fetchQualityProfile(url, apiKey, str(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
+        int languageProfileId = fetchLanguageProfile(url, apiKey);
+        Set<Integer> tagIds = resolveTags(url, apiKey, str(sonarrTags, "sonarr.tags", ""));
         log.info("Successfully connected to Sonarr at {}", url);
         return new SonarrConfig(url, apiKey, qualityProfileId, rootFolder,
             bool(sonarrBypassIgnored, "sonarr.bypass-ignored", false),
@@ -119,13 +123,15 @@ public class ConfigurationService {
     }
 
     private RadarrConfig resolveRadarr() {
-        var apiKey = str(radarrApiKey, "radarr.api-key", "");
-        if (apiKey.isBlank()) error("Unable to find Radarr API key");
-        var url = findCorrectUrl(buildCandidateUrls(str(radarrBaseUrl, "radarr.base-url", ""), 7878), apiKey, 7878);
+        String apiKey = str(radarrApiKey, "radarr.api-key", "");
+        if (apiKey.isBlank()) {
+            error("Unable to find Radarr API key");
+        }
+        String url = findCorrectUrl(buildCandidateUrls(str(radarrBaseUrl, "radarr.base-url", ""), 7878), apiKey, 7878);
 
-        var rootFolder = fetchRootFolder(url, apiKey, str(radarrRootFolder, "radarr.root-folder", ""), "Radarr");
-        var qualityProfileId = fetchQualityProfile(url, apiKey, str(radarrQualityProfile, "radarr.quality-profile", ""), "Radarr");
-        var tagIds = resolveTags(url, apiKey, str(radarrTags, "radarr.tags", ""));
+        String rootFolder = fetchRootFolder(url, apiKey, str(radarrRootFolder, "radarr.root-folder", ""), "Radarr");
+        int qualityProfileId = fetchQualityProfile(url, apiKey, str(radarrQualityProfile, "radarr.quality-profile", ""), "Radarr");
+        Set<Integer> tagIds = resolveTags(url, apiKey, str(radarrTags, "radarr.tags", ""));
         log.info("Successfully connected to Radarr at {}", url);
         return new RadarrConfig(url, apiKey, qualityProfileId, rootFolder,
             bool(radarrBypassIgnored, "radarr.bypass-ignored", false), tagIds);
@@ -144,29 +150,36 @@ public class ConfigurationService {
 
     private String findCorrectUrl(List<String> candidates, String apiKey, int defaultPort) {
         for (String url : candidates) {
-            var result = http.get(url + "/api/v3/health", apiKey);
-            if (result.isPresent()) return url;
+            Optional<JsonNode> result = http.get(url + "/api/v3/health", apiKey);
+            if (result.isPresent()) {
+                return url;
+            }
         }
-        var fallback = "http://localhost:" + defaultPort;
+        String fallback = "http://localhost:" + defaultPort;
         log.warn("Could not reach any candidate URL, defaulting to {}", fallback);
         return fallback;
     }
 
     private String normaliseUrl(String url) {
         url = url.trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://" + url;
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "http://" + url;
+        }
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     // ── Profile / folder helpers ──────────────────────────────────────────────
 
     private String fetchRootFolder(String baseUrl, String apiKey, String preferred, String app) {
-        var result = http.get(baseUrl + "/api/v3/rootFolder", apiKey);
-        if (result.isEmpty()) error("Unable to connect to " + app + " at " + baseUrl);
+        Optional<JsonNode> result = http.get(baseUrl + "/api/v3/rootFolder", apiKey);
+        if (result.isEmpty()) {
+            error("Unable to connect to " + app + " at " + baseUrl);
+        }
         try {
-            var folders = http.getMapper().convertValue(result.get(), new TypeReference<List<RootFolder>>() {});
+            List<RootFolder> folders = http.getMapper().convertValue(result.get(), new TypeReference<List<RootFolder>>() {});
             return selectRootFolder(folders, preferred.isBlank() ? null : preferred, app);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             error("Unable to parse root folders from " + app + ": " + e.getMessage());
             return null;
         }
@@ -193,21 +206,32 @@ public class ConfigurationService {
     }
 
     private int fetchQualityProfile(String baseUrl, String apiKey, String preferred, String app) {
-        var result = http.get(baseUrl + "/api/v3/qualityprofile", apiKey);
-        if (result.isEmpty()) error("Unable to fetch quality profiles from " + app);
+        Optional<JsonNode> result = http.get(baseUrl + "/api/v3/qualityprofile", apiKey);
+        if (result.isEmpty()) {
+            error("Unable to fetch quality profiles from " + app);
+        }
         try {
-            var profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<QualityProfile>>() {});
+            List<QualityProfile> profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<QualityProfile>>() {});
             return selectQualityProfile(profiles, preferred.isBlank() ? null : preferred, app);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             error("Unable to parse quality profiles from " + app + ": " + e.getMessage());
             return -1;
         }
     }
 
     private int selectQualityProfile(List<QualityProfile> profiles, String preferred, String app) {
-        if (profiles.isEmpty()) error("No quality profiles in " + app);
-        if (profiles.size() == 1) { log.debug("Only one quality profile: {}", profiles.get(0).name); return profiles.get(0).id; }
-        if (preferred == null) { log.debug("Multiple profiles in {}, using first", app); return profiles.get(0).id; }
+        if (profiles.isEmpty()) {
+            error("No quality profiles in " + app);
+        }
+        if (profiles.size() == 1) {
+            log.debug("Only one quality profile: {}", profiles.get(0).name);
+            return profiles.get(0).id;
+        }
+        if (preferred == null) {
+            log.debug("Multiple profiles in {}, using first", app);
+            return profiles.get(0).id;
+        }
         return profiles.stream()
             .filter(p -> p.name.equalsIgnoreCase(preferred))
             .map(p -> p.id)
@@ -216,19 +240,25 @@ public class ConfigurationService {
     }
 
     private int fetchLanguageProfile(String baseUrl, String apiKey) {
-        var result = http.get(baseUrl + "/api/v3/languageprofile", apiKey);
-        if (result.isEmpty()) { log.warn("Unable to find language profile, using 1 as default"); return 1; }
+        Optional<JsonNode> result = http.get(baseUrl + "/api/v3/languageprofile", apiKey);
+        if (result.isEmpty()) {
+            log.warn("Unable to find language profile, using 1 as default");
+            return 1;
+        }
         try {
-            var profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<LanguageProfile>>() {});
+            List<LanguageProfile> profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<LanguageProfile>>() {});
             return profiles.isEmpty() ? 1 : profiles.get(0).id;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Unable to parse language profiles, using 1 as default");
             return 1;
         }
     }
 
     private Set<Integer> resolveTags(String baseUrl, String apiKey, String tagsConfig) {
-        if (tagsConfig.isBlank()) return Set.of();
+        if (tagsConfig.isBlank()) {
+            return Set.of();
+        }
         return Arrays.stream(tagsConfig.split(","))
             .map(String::trim)
             .filter(t -> !t.isBlank())
@@ -240,33 +270,50 @@ public class ConfigurationService {
 
     private Optional<Integer> resolveTag(String baseUrl, String apiKey, String tagName) {
         log.info("Fetching information for tag: {}", tagName);
-        var body = Map.of("label", tagName.toLowerCase());
-        var result = http.post(baseUrl + "/api/v3/tag", apiKey, body);
-        if (result.isEmpty()) { log.warn("Failed to create/fetch tag '{}'", tagName); return Optional.empty(); }
-        var idNode = result.get().get("id");
+        Map<String, String> body = Map.of("label", tagName.toLowerCase());
+        Optional<JsonNode> result = http.post(baseUrl + "/api/v3/tag", apiKey, body);
+        if (result.isEmpty()) {
+            log.warn("Failed to create/fetch tag '{}'", tagName);
+            return Optional.empty();
+        }
+        JsonNode idNode = result.get().get("id");
         return idNode != null ? Optional.of(idNode.asInt()) : Optional.empty();
     }
 
     // ── Plex helpers ──────────────────────────────────────────────────────────
 
     private Set<String> parsePlexTokens() {
-        var token = str(plexToken, "plex.token", "");
-        if (token.isBlank()) { log.warn("Missing plex token"); return Set.of(); }
+        String token = str(plexToken, "plex.token", "");
+        if (token.isBlank()) {
+            log.warn("Missing plex token");
+            return Set.of();
+        }
         return Arrays.stream(token.split(",")).map(String::trim).filter(t -> !t.isBlank())
             .collect(Collectors.toSet());
     }
 
     private Set<String> resolvePlexWatchlistUrls(Set<String> tokens) {
         Set<String> urls = new LinkedHashSet<>();
-        var w1 = str(plexWatchlist1, "plex.watchlist1", "");
-        var w2 = str(plexWatchlist2, "plex.watchlist2", "");
-        if (!w1.isBlank() && isValidPlexRssUrl(w1)) urls.add(w1);
-        if (!w2.isBlank() && isValidPlexRssUrl(w2)) urls.add(w2);
+        String w1 = str(plexWatchlist1, "plex.watchlist1", "");
+        String w2 = str(plexWatchlist2, "plex.watchlist2", "");
+        if (!w1.isBlank() && isValidPlexRssUrl(w1)) {
+            urls.add(w1);
+        }
+        if (!w2.isBlank() && isValidPlexRssUrl(w2)) {
+            urls.add(w2);
+        }
 
-        for (var token : tokens) {
-            generateRssUrl(token, "watchlist").ifPresent(u -> { log.info("Generated watchlist RSS feed for self: {}", u); urls.add(u); });
-            if (!bool(skipFriendSync, "plex.skip-friend-sync", false))
-                generateRssUrl(token, "friendsWatchlist").ifPresent(u -> { log.info("Generated watchlist RSS feed for friends: {}", u); urls.add(u); });
+        for (String token : tokens) {
+            generateRssUrl(token, "watchlist").ifPresent(u -> {
+                log.info("Generated watchlist RSS feed for self: {}", u);
+                urls.add(u);
+            });
+            if (!bool(skipFriendSync, "plex.skip-friend-sync", false)) {
+                generateRssUrl(token, "friendsWatchlist").ifPresent(u -> {
+                    log.info("Generated watchlist RSS feed for friends: {}", u);
+                    urls.add(u);
+                });
+            }
         }
 
         if (urls.isEmpty()) {
@@ -277,15 +324,21 @@ public class ConfigurationService {
     }
 
     private Optional<String> generateRssUrl(String token, String feedType) {
-        var url = "https://discover.provider.plex.tv/rss?X-Plex-Token=" + token + "&X-Plex-Client-Identifier=watchlistarr";
-        var body = Map.of("feedType", feedType);
-        var result = http.post(url, body);
-        if (result.isEmpty()) { log.warn("Unable to generate an RSS feed for {}", feedType); return Optional.empty(); }
+        String url = "https://discover.provider.plex.tv/rss?X-Plex-Token=" + token + "&X-Plex-Client-Identifier=watchlistarr";
+        Map<String, String> body = Map.of("feedType", feedType);
+        Optional<JsonNode> result = http.post(url, body);
+        if (result.isEmpty()) {
+            log.warn("Unable to generate an RSS feed for {}", feedType);
+            return Optional.empty();
+        }
         try {
-            var feed = http.getMapper().treeToValue(result.get(), RssFeedGenerated.class);
-            if (feed.RSSInfo.isEmpty()) return Optional.empty();
+            RssFeedGenerated feed = http.getMapper().treeToValue(result.get(), RssFeedGenerated.class);
+            if (feed.RSSInfo.isEmpty()) {
+                return Optional.empty();
+            }
             return Optional.ofNullable(feed.RSSInfo.get(0).url);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Unable to decode RSS generation response: {}", e.getMessage());
             return Optional.empty();
         }
@@ -293,13 +346,17 @@ public class ConfigurationService {
 
     private boolean isValidPlexRssUrl(String url) {
         try {
-            var host = new java.net.URI(url).getHost();
-            return "rss.plex.tv".equals(host);
-        } catch (Exception e) { return false; }
+            return "rss.plex.tv".equals(new java.net.URI(url).getHost());
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 
     private String normalisePath(String path) {
-        if (path.endsWith("/") && path.length() > 1) path = path.substring(0, path.length() - 1);
+        if (path.endsWith("/") && path.length() > 1) {
+            path = path.substring(0, path.length() - 1);
+        }
         return path.replace("//", "/");
     }
 
