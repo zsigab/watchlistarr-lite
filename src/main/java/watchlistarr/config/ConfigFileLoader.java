@@ -65,7 +65,6 @@ public class ConfigFileLoader {
 
     // ── Parsing ───────────────────────────────────────────────────────────────
 
-    @SuppressWarnings("unchecked")
     private void parse(Path path) {
         try (FileReader reader = new FileReader(path.toFile())) {
             Map<String, Object> root = new Yaml().load(reader);
@@ -110,7 +109,6 @@ public class ConfigFileLoader {
     }
 
     /** Navigate a dot-separated path through nested maps, treating each segment as a literal key. */
-    @SuppressWarnings("unchecked")
     private void map(Map<String, Object> root, String dotPath, String targetKey) {
         Object node = root;
         for (String part : dotPath.split("\\.")) {
@@ -125,7 +123,6 @@ public class ConfigFileLoader {
     }
 
     /** Like map(), but joins a YAML list into a comma-separated string. */
-    @SuppressWarnings("unchecked")
     private void mapList(Map<String, Object> root, String dotPath, String targetKey) {
         Object node = root;
         for (String part : dotPath.split("\\.")) {
@@ -143,7 +140,6 @@ public class ConfigFileLoader {
     }
 
     /** For YAML keys that literally contain a dot, e.g. "interval.days" nested under "delete". */
-    @SuppressWarnings("unchecked")
     private void mapLiteralKey(Map<String, Object> root, String parent, String literalKey, String targetKey) {
         Object parentNode = root.get(parent);
         if (!(parentNode instanceof Map<?, ?> m)) {

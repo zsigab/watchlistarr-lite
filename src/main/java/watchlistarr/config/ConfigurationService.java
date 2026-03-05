@@ -87,54 +87,61 @@ public class ConfigurationService {
         Set<String> tokens = parsePlexTokens();
         Set<String> watchlistUrls = resolvePlexWatchlistUrls(tokens);
         boolean hasPlexPass = !watchlistUrls.isEmpty();
-        long effectiveInterval = hasPlexPass ? lng(refreshIntervalSeconds, "refresh.interval-seconds", 60) : 19 * 60;
+        long effectiveInterval = hasPlexPass ? readLong(refreshIntervalSeconds, "refresh.interval-seconds", 60) : 19 * 60;
 
         return new AppConfig(
             effectiveInterval,
             sonarr,
             radarr,
-            new PlexConfig(watchlistUrls, tokens, bool(skipFriendSync, "plex.skip-friend-sync", false), hasPlexPass),
+            new PlexConfig(
+                    watchlistUrls,
+                    tokens,
+                    readBoolean(skipFriendSync, "plex.skip-friend-sync", false),
+                    hasPlexPass
+            ),
             new DeleteConfig(
-                bool(deleteMovie,          "delete.movie",            false),
-                bool(deleteEndedShow,      "delete.ended-show",       false),
-                bool(deleteContinuingShow, "delete.continuing-show",  false),
-                lng(deleteIntervalDays,    "delete.interval-days",    7),
-                bool(deleteFiles,          "delete.delete-files",     true)
+                readBoolean(deleteMovie,          "delete.movie",            false),
+                readBoolean(deleteEndedShow,      "delete.ended-show",       false),
+                readBoolean(deleteContinuingShow, "delete.continuing-show",  false),
+                readLong(deleteIntervalDays,    "delete.interval-days",    7),
+                readBoolean(deleteFiles,          "delete.delete-files",     true)
             )
         );
     }
 
     private SonarrConfig resolveSonarr() {
-        String apiKey = str(sonarrApiKey, "sonarr.api-key", "");
+        String apiKey = readString(sonarrApiKey, "sonarr.api-key", "");
         if (apiKey.isBlank()) {
             error("Unable to find Sonarr API key");
         }
-        String url = findCorrectUrl(buildCandidateUrls(str(sonarrBaseUrl, "sonarr.base-url", ""), 8989), apiKey, 8989);
+        String url = findCorrectUrl(buildCandidateUrls(readString(sonarrBaseUrl, "sonarr.base-url", ""), 8989), apiKey, 8989);
 
-        String rootFolder = fetchRootFolder(url, apiKey, str(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
-        int qualityProfileId = fetchQualityProfile(url, apiKey, str(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
+        String rootFolder = fetchRootFolder(url, apiKey, readString(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
+        int qualityProfileId = fetchQualityProfile(url, apiKey, readString(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
         int languageProfileId = fetchLanguageProfile(url, apiKey);
-        Set<Integer> tagIds = resolveTags(url, apiKey, str(sonarrTags, "sonarr.tags", ""));
+        Set<Integer> tagIds = resolveTags(url, apiKey, readString(sonarrTags, "sonarr.tags", ""));
         log.info("Successfully connected to Sonarr at {}", url);
+
         return new SonarrConfig(url, apiKey, qualityProfileId, rootFolder,
-            bool(sonarrBypassIgnored, "sonarr.bypass-ignored", false),
-            str(sonarrSeasonMonitoring, "sonarr.season-monitoring", "all"),
+            readBoolean(sonarrBypassIgnored, "sonarr.bypass-ignored", false),
+            readString(sonarrSeasonMonitoring, "sonarr.season-monitoring", "all"),
             languageProfileId, tagIds);
     }
 
     private RadarrConfig resolveRadarr() {
-        String apiKey = str(radarrApiKey, "radarr.api-key", "");
+        String apiKey = readString(radarrApiKey, "radarr.api-key", "");
         if (apiKey.isBlank()) {
             error("Unable to find Radarr API key");
         }
-        String url = findCorrectUrl(buildCandidateUrls(str(radarrBaseUrl, "radarr.base-url", ""), 7878), apiKey, 7878);
+        String url = findCorrectUrl(buildCandidateUrls(readString(radarrBaseUrl, "radarr.base-url", ""), 7878), apiKey, 7878);
 
-        String rootFolder = fetchRootFolder(url, apiKey, str(radarrRootFolder, "radarr.root-folder", ""), "Radarr");
-        int qualityProfileId = fetchQualityProfile(url, apiKey, str(radarrQualityProfile, "radarr.quality-profile", ""), "Radarr");
-        Set<Integer> tagIds = resolveTags(url, apiKey, str(radarrTags, "radarr.tags", ""));
+        String rootFolder = fetchRootFolder(url, apiKey, readString(radarrRootFolder, "radarr.root-folder", ""), "Radarr");
+        int qualityProfileId = fetchQualityProfile(url, apiKey, readString(radarrQualityProfile, "radarr.quality-profile", ""), "Radarr");
+        Set<Integer> tagIds = resolveTags(url, apiKey, readString(radarrTags, "radarr.tags", ""));
         log.info("Successfully connected to Radarr at {}", url);
+
         return new RadarrConfig(url, apiKey, qualityProfileId, rootFolder,
-            bool(radarrBypassIgnored, "radarr.bypass-ignored", false), tagIds);
+            readBoolean(radarrBypassIgnored, "radarr.bypass-ignored", false), tagIds);
     }
 
     // ── URL probing ───────────────────────────────────────────────────────────
@@ -201,7 +208,7 @@ public class ConfigurationService {
         return folders.stream().filter(f -> f.accessible).map(f -> f.path).findFirst()
             .orElseGet(() -> {
                 log.warn("No accessible root folder in {} - adding items will fail until permissions are fixed", app);
-                return folders.get(0).path;
+                return folders.getFirst().path;
             });
     }
 
@@ -225,12 +232,12 @@ public class ConfigurationService {
             error("No quality profiles in " + app);
         }
         if (profiles.size() == 1) {
-            log.debug("Only one quality profile: {}", profiles.get(0).name);
-            return profiles.get(0).id;
+            log.debug("Only one quality profile: {}", profiles.getFirst().name);
+            return profiles.getFirst().id;
         }
         if (preferred == null) {
             log.debug("Multiple profiles in {}, using first", app);
-            return profiles.get(0).id;
+            return profiles.getFirst().id;
         }
         return profiles.stream()
             .filter(p -> p.name.equalsIgnoreCase(preferred))
@@ -247,7 +254,7 @@ public class ConfigurationService {
         }
         try {
             List<LanguageProfile> profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<LanguageProfile>>() {});
-            return profiles.isEmpty() ? 1 : profiles.get(0).id;
+            return profiles.isEmpty() ? 1 : profiles.getFirst().id;
         }
         catch (Exception e) {
             log.warn("Unable to parse language profiles, using 1 as default");
@@ -283,7 +290,7 @@ public class ConfigurationService {
     // ── Plex helpers ──────────────────────────────────────────────────────────
 
     private Set<String> parsePlexTokens() {
-        String token = str(plexToken, "plex.token", "");
+        String token = readString(plexToken, "plex.token", "");
         if (token.isBlank()) {
             log.warn("Missing plex token");
             return Set.of();
@@ -294,8 +301,8 @@ public class ConfigurationService {
 
     private Set<String> resolvePlexWatchlistUrls(Set<String> tokens) {
         Set<String> urls = new LinkedHashSet<>();
-        String w1 = str(plexWatchlist1, "plex.watchlist1", "");
-        String w2 = str(plexWatchlist2, "plex.watchlist2", "");
+        String w1 = readString(plexWatchlist1, "plex.watchlist1", "");
+        String w2 = readString(plexWatchlist2, "plex.watchlist2", "");
         if (!w1.isBlank() && isValidPlexRssUrl(w1)) {
             urls.add(w1);
         }
@@ -308,7 +315,7 @@ public class ConfigurationService {
                 log.info("Generated watchlist RSS feed for self: {}", u);
                 urls.add(u);
             });
-            if (!bool(skipFriendSync, "plex.skip-friend-sync", false)) {
+            if (!readBoolean(skipFriendSync, "plex.skip-friend-sync", false)) {
                 generateRssUrl(token, "friendsWatchlist").ifPresent(u -> {
                     log.info("Generated watchlist RSS feed for friends: {}", u);
                     urls.add(u);
@@ -336,7 +343,7 @@ public class ConfigurationService {
             if (feed.RSSInfo.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.ofNullable(feed.RSSInfo.get(0).url);
+            return Optional.ofNullable(feed.RSSInfo.getFirst().url);
         }
         catch (Exception e) {
             log.warn("Unable to decode RSS generation response: {}", e.getMessage());
@@ -399,20 +406,20 @@ Configuration:
 
     // ── Config merge helpers (env var > config file > default) ────────────────
 
-    private String str(Optional<String> env, String fileKey, String def) {
+    private String readString(Optional<String> env, String fileKey, String def) {
         return env.filter(s -> !s.isBlank())
             .or(() -> fileLoader.get(fileKey))
             .orElse(def);
     }
 
-    private boolean bool(Optional<String> env, String fileKey, boolean def) {
+    private boolean readBoolean(Optional<String> env, String fileKey, boolean def) {
         return env.filter(s -> !s.isBlank())
             .or(() -> fileLoader.get(fileKey))
             .map(Boolean::parseBoolean)
             .orElse(def);
     }
 
-    private long lng(Optional<String> env, String fileKey, long def) {
+    private long readLong(Optional<String> env, String fileKey, long def) {
         return env.filter(s -> !s.isBlank())
             .or(() -> fileLoader.get(fileKey))
             .map(Long::parseLong)
