@@ -75,15 +75,13 @@ public class HttpService {
     private Optional<JsonNode> makeRequest(String method, String url, String apiKey, String body) {
         try {
             var uri = URI.create(url);
-            var host = uri.getHost() != null ? uri.getHost() : "127.0.0.1";
 
             var requestBuilder = HttpRequest.newBuilder()
                 .uri(uri)
                 .timeout(Duration.ofSeconds(30))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
-                .header("User-Agent", "watchlistarr/1.0")
-                .header("Host", host);
+                .header("User-Agent", "watchlistarr/1.0");
 
             if (apiKey != null) {
                 requestBuilder.header("X-Api-Key", apiKey);

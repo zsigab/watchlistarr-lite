@@ -3,7 +3,6 @@ quarkus:
     level: INFO
     console:
       format: "%d{HH:mm:ss.SSS} [%t] %-5p %c{36} - %s%e%n"
-      color: false
     category:
       "watchlistarr":
         level: ${LOG_LEVEL:INFO}
@@ -11,26 +10,13 @@ quarkus:
     enabled: true
 
 sonarr:
-  base-url: ""
-  api-key: ""
-  quality-profile: ""
-  root-folder: ""
   bypass-ignored: false
   season-monitoring: "all"
-  tags: ""
 
 radarr:
-  base-url: ""
-  api-key: ""
-  quality-profile: ""
-  root-folder: ""
   bypass-ignored: false
-  tags: ""
 
 plex:
-  token: ""
-  watchlist1: ""
-  watchlist2: ""
   skip-friend-sync: false
 
 delete:
