@@ -13,6 +13,4 @@ COPY --from=build /app/target/quarkus-app/lib/ ./lib/
 COPY --from=build /app/target/quarkus-app/*.jar ./
 COPY --from=build /app/target/quarkus-app/app/ ./app/
 COPY --from=build /app/target/quarkus-app/quarkus/ ./quarkus/
-COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
-VOLUME ["/app/config"]
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["java", "-Xmx100m", "-jar", "/app/quarkus-run.jar"]
