@@ -20,7 +20,8 @@ public class PingSync {
     void run() {
         try {
             plexService.ping(configService.get().plex());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Ping sync error: {}", e.getMessage());
         }
     }

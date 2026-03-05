@@ -27,11 +27,20 @@ public class Item {
     public Optional<Long> getSonarrId() { return extractId("sonarr://"); }
 
     private Optional<Long> extractId(String prefix) {
-        if (guids == null) return Optional.empty();
+        if (guids == null) {
+            return Optional.empty();
+        }
         return guids.stream()
             .filter(g -> g.startsWith(prefix))
             .map(g -> g.substring(prefix.length()))
-            .map(s -> { try { return Long.parseLong(s); } catch (NumberFormatException e) { return null; } })
+            .map(s -> {
+                try {
+                    return Long.parseLong(s);
+                }
+                catch (NumberFormatException e) {
+                    return null;
+                }
+            })
             .filter(Objects::nonNull)
             .findFirst();
     }

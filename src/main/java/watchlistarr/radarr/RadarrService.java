@@ -1,6 +1,7 @@
 package watchlistarr.radarr;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
@@ -22,39 +23,40 @@ public class RadarrService {
     @Inject HttpService http;
 
     public Set<Item> fetchMovies(RadarrConfig config, boolean bypass) {
-        var movies = getArr(config.baseUrl(), config.apiKey(), "movie", new TypeReference<List<RadarrMovie>>() {});
-        var exclusions = bypass
+        List<RadarrMovie> movies = getArr(config.baseUrl(), config.apiKey(), "movie", new TypeReference<List<RadarrMovie>>() {});
+        List<RadarrMovieExclusion> exclusions = bypass
             ? List.<RadarrMovieExclusion>of()
             : getArr(config.baseUrl(), config.apiKey(), "exclusions", new TypeReference<List<RadarrMovieExclusion>>() {});
 
-        var result = new HashSet<Item>();
+        Set<Item> result = new HashSet<>();
         Objects.requireNonNull(movies).stream().map(this::toItem).forEach(result::add);
         Objects.requireNonNull(exclusions).stream().map(this::toMovieItem).forEach(result::add);
         return result;
     }
 
     public void addToRadarr(RadarrConfig config, Item item) {
-        var post = new RadarrPost(
+        RadarrPost post = new RadarrPost(
             item.title,
             item.getTmdbId().orElse(0L),
                 config.qualityProfileId(),
                 config.rootFolder(),
             new ArrayList<>(config.tagIds())
         );
-        var result = http.post(config.baseUrl() + "/api/v3/movie", config.apiKey(), post);
+        Optional<JsonNode> result = http.post(config.baseUrl() + "/api/v3/movie", config.apiKey(), post);
         if (result.isPresent()) {
             log.info("Sent {} to Radarr", item.title);
-        } else {
+        }
+        else {
             log.debug("Received warning for sending {} to Radarr", item.title);
         }
     }
 
     public void deleteFromRadarr(RadarrConfig config, Item item, boolean deleteFiles) {
-        var id = item.getRadarrId().orElseGet(() -> {
+        long id = item.getRadarrId().orElseGet(() -> {
             log.warn("Unable to extract Radarr ID from movie to delete: {}", item);
             return 0L;
         });
-        var url = config.baseUrl() + "/api/v3/movie/" + id
+        String url = config.baseUrl() + "/api/v3/movie/" + id
             + "?deleteFiles=" + deleteFiles + "&addImportExclusion=false";
         http.delete(url, config.apiKey());
         log.info("Deleted {} from Radarr", item.title);
@@ -62,8 +64,12 @@ public class RadarrService {
 
     private Item toItem(RadarrMovie m) {
         List<String> guids = new ArrayList<>();
-        if (m.imdbId != null) guids.add(m.imdbId);
-        if (m.tmdbId != null) guids.add("tmdb://" + m.tmdbId);
+        if (m.imdbId != null) {
+            guids.add(m.imdbId);
+        }
+        if (m.tmdbId != null) {
+            guids.add("tmdb://" + m.tmdbId);
+        }
         guids.add("radarr://" + m.id);
         return new Item(m.title, guids, "movie", null);
     }
@@ -73,16 +79,27 @@ public class RadarrService {
     }
 
     private <T> T getArr(String baseUrl, String apiKey, String endpoint, TypeReference<T> type) {
-        var result = http.get(baseUrl + "/api/v3/" + endpoint, apiKey);
+        Optional<JsonNode> result = http.get(baseUrl + "/api/v3/" + endpoint, apiKey);
         if (result.isEmpty()) {
             log.warn("No response from Radarr endpoint: {}", endpoint);
-            try { return http.getMapper().convertValue(List.of(), type); } catch (Exception e) { return null; }
+            try {
+                return http.getMapper().convertValue(List.of(), type);
+            }
+            catch (Exception e) {
+                return null;
+            }
         }
         try {
             return http.getMapper().convertValue(result.get(), type);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to decode Radarr response for {}: {}", endpoint, e.getMessage());
-            try { return http.getMapper().convertValue(List.of(), type); } catch (Exception ex) { return null; }
+            try {
+                return http.getMapper().convertValue(List.of(), type);
+            }
+            catch (Exception ex) {
+                return null;
+            }
         }
     }
 }

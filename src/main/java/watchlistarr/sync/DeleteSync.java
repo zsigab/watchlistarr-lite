@@ -29,36 +29,37 @@ public class DeleteSync {
     void run() {
         try {
             sync(configService.get());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Delete sync error: {}", e.getMessage());
         }
     }
 
     void sync(AppConfig config) {
-        // Fetch full current plex watchlist
         Set<Item> plexWatchlist = new HashSet<>(plexService.getSelfWatchlist(config.plex()));
         if (!config.plex().skipFriendSync()) {
             plexWatchlist.addAll(plexService.getOthersWatchlist(config.plex()));
         }
-        for (var url : config.plex().watchlistUrls()) {
+        for (String url : config.plex().watchlistUrls()) {
             plexWatchlist.addAll(plexService.fetchWatchlistFromRss(url));
         }
 
-        // Fetch all items from Sonarr/Radarr (bypass=true: don't include exclusion list)
-        var movies = radarrService.fetchMovies(config.radarr(), true);
-        var series = sonarrService.fetchSeries(config.sonarr(), true);
+        Set<Item> movies = radarrService.fetchMovies(config.radarr(), true);
+        Set<Item> series = sonarrService.fetchSeries(config.sonarr(), true);
 
-        for (var item : movies) {
+        for (Item item : movies) {
             if (plexWatchlist.stream().anyMatch(p -> p.matches(item))) {
                 log.debug("movie \"{}\" already exists in Plex", item.title);
-            } else {
+            }
+            else {
                 deleteMovie(config, item);
             }
         }
-        for (var item : series) {
+        for (Item item : series) {
             if (plexWatchlist.stream().anyMatch(p -> p.matches(item))) {
                 log.debug("show \"{}\" already exists in Plex", item.title);
-            } else {
+            }
+            else {
                 deleteSeries(config, item);
             }
         }
@@ -67,7 +68,8 @@ public class DeleteSync {
     private void deleteMovie(AppConfig config, Item movie) {
         if (config.delete().movieDeleting()) {
             radarrService.deleteFromRadarr(config.radarr(), movie, config.delete().deleteFiles());
-        } else {
+        }
+        else {
             log.info("Found movie \"{}\" which is not watchlisted on Plex", movie.title);
         }
     }
@@ -77,9 +79,11 @@ public class DeleteSync {
         boolean isContinuing = Boolean.FALSE.equals(show.ended);
         if (isEnded && config.delete().endedShowDeleting()) {
             sonarrService.deleteFromSonarr(config.sonarr(), show, config.delete().deleteFiles());
-        } else if (isContinuing && config.delete().continuingShowDeleting()) {
+        }
+        else if (isContinuing && config.delete().continuingShowDeleting()) {
             sonarrService.deleteFromSonarr(config.sonarr(), show, config.delete().deleteFiles());
-        } else {
+        }
+        else {
             log.info("Found show \"{}\" which is not watchlisted on Plex", show.title);
         }
     }

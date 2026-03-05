@@ -68,15 +68,15 @@ public class HttpService {
     }
 
     private Optional<JsonNode> cachedRequest(String method, String url, String apiKey, String body) {
-        var key = new CacheKey(method, url, apiKey, body);
+        CacheKey key = new CacheKey(method, url, apiKey, body);
         return cache.get(key, k -> makeRequest(k.method(), k.url(), k.apiKey(), k.body()));
     }
 
     private Optional<JsonNode> makeRequest(String method, String url, String apiKey, String body) {
         try {
-            var uri = URI.create(url);
+            URI uri = URI.create(url);
 
-            var requestBuilder = HttpRequest.newBuilder()
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(uri)
                 .timeout(Duration.ofSeconds(30))
                 .header("Accept", "application/json")
@@ -88,24 +88,23 @@ public class HttpService {
                 requestBuilder.header("X-Plex-Token", apiKey);
             }
 
-            var bodyPublisher = body != null
+            HttpRequest.BodyPublisher bodyPublisher = body != null
                 ? HttpRequest.BodyPublishers.ofString(body)
                 : HttpRequest.BodyPublishers.noBody();
 
-            var request = requestBuilder.method(method, bodyPublisher).build();
+            HttpRequest request = requestBuilder.method(method, bodyPublisher).build();
 
             log.debug("HTTP {} {}", method, url);
 
-            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             log.debug("HTTP Response: {} {}", response.statusCode(), url);
 
-            var responseBody = response.body();
+            String responseBody = response.body();
             if (responseBody == null || responseBody.isBlank()) {
                 return Optional.of(mapper.nullNode());
             }
             return Optional.of(mapper.readTree(responseBody));
-
         }
         catch (Exception e) {
             log.warn("HTTP request failed [{} {}]: {}", method, url, e.getMessage());

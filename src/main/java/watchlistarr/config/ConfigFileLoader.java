@@ -3,6 +3,8 @@ package watchlistarr.config;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.FileReader;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,7 +16,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
- * Reads config/watchlistarr.yaml (original watchlistarr format) and maps keys
+ * Reads /config/watchlistarr.yaml (original watchlistarr format) and maps keys
  * to our MicroProfile Config key names. Creates a template on first boot.
  * Priority: env vars > this file > application defaults.
  */
@@ -26,11 +28,12 @@ public class ConfigFileLoader {
     private final Map<String, String> values = new HashMap<>();
 
     public static ConfigFileLoader load() {
-        var loader = new ConfigFileLoader();
-        var path = Paths.get(CONFIG_FILE);
+        ConfigFileLoader loader = new ConfigFileLoader();
+        Path path = Paths.get(CONFIG_FILE);
         if (!Files.exists(path)) {
             loader.createTemplate(path);
-        } else {
+        }
+        else {
             loader.parse(path);
         }
         return loader;
@@ -45,13 +48,17 @@ public class ConfigFileLoader {
     private void createTemplate(Path path) {
         try {
             Files.createDirectories(path.getParent());
-            try (var in = ConfigFileLoader.class.getResourceAsStream("/config-template.yaml");
-                 var out = Files.newOutputStream(path)) {
-                if (in == null) { log.warning("Config template resource not found"); return; }
+            try (InputStream in = ConfigFileLoader.class.getResourceAsStream("/config-template.yaml");
+                 OutputStream out = Files.newOutputStream(path)) {
+                if (in == null) {
+                    log.warning("Config template resource not found");
+                    return;
+                }
                 in.transferTo(out);
             }
             log.info("Created config template at " + path.toAbsolutePath());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warning("Could not create config template: " + e.getMessage());
         }
     }
@@ -60,9 +67,12 @@ public class ConfigFileLoader {
 
     @SuppressWarnings("unchecked")
     private void parse(Path path) {
-        try (var reader = new FileReader(path.toFile())) {
+        try (FileReader reader = new FileReader(path.toFile())) {
             Map<String, Object> root = new Yaml().load(reader);
-            if (root == null) { log.info("Config file is empty: " + path); return; }
+            if (root == null) {
+                log.info("Config file is empty: " + path);
+                return;
+            }
 
             map(root, "interval.seconds",          "refresh.interval-seconds");
 
@@ -93,7 +103,8 @@ public class ConfigFileLoader {
             map(root, "delete.deleteFiles",        "delete.delete-files");
 
             log.info("Loaded " + values.size() + " values from " + path.toAbsolutePath());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warning("Could not read config file " + path + ": " + e.getMessage());
         }
     }
@@ -102,8 +113,10 @@ public class ConfigFileLoader {
     @SuppressWarnings("unchecked")
     private void map(Map<String, Object> root, String dotPath, String targetKey) {
         Object node = root;
-        for (var part : dotPath.split("\\.")) {
-            if (!(node instanceof Map<?, ?> m)) return;
+        for (String part : dotPath.split("\\.")) {
+            if (!(node instanceof Map<?, ?> m)) {
+                return;
+            }
             node = m.get(part);
         }
         if (node != null && !(node instanceof Map)) {
@@ -115,13 +128,16 @@ public class ConfigFileLoader {
     @SuppressWarnings("unchecked")
     private void mapList(Map<String, Object> root, String dotPath, String targetKey) {
         Object node = root;
-        for (var part : dotPath.split("\\.")) {
-            if (!(node instanceof Map<?, ?> m)) return;
+        for (String part : dotPath.split("\\.")) {
+            if (!(node instanceof Map<?, ?> m)) {
+                return;
+            }
             node = m.get(part);
         }
         if (node instanceof List<?> list) {
             values.put(targetKey, list.stream().map(Object::toString).collect(Collectors.joining(",")));
-        } else if (node != null) {
+        }
+        else if (node != null) {
             values.put(targetKey, node.toString());
         }
     }
@@ -129,9 +145,13 @@ public class ConfigFileLoader {
     /** For YAML keys that literally contain a dot, e.g. "interval.days" nested under "delete". */
     @SuppressWarnings("unchecked")
     private void mapLiteralKey(Map<String, Object> root, String parent, String literalKey, String targetKey) {
-        var parentNode = root.get(parent);
-        if (!(parentNode instanceof Map<?, ?> m)) return;
-        var val = m.get(literalKey);
-        if (val != null) values.put(targetKey, val.toString());
+        Object parentNode = root.get(parent);
+        if (!(parentNode instanceof Map<?, ?> m)) {
+            return;
+        }
+        Object val = m.get(literalKey);
+        if (val != null) {
+            values.put(targetKey, val.toString());
+        }
     }
 }

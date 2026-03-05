@@ -29,27 +29,29 @@ public class RssSync {
     void run() {
         try {
             sync(configService.get());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("RSS sync error: {}", e.getMessage());
         }
     }
 
     void sync(AppConfig config) {
-        // RSS-only sync: no token-based self/others fetch (runFullSync=false equivalent)
         Set<Item> watchlist = new HashSet<>();
-        for (var url : config.plex().watchlistUrls()) {
+        for (String url : config.plex().watchlistUrls()) {
             watchlist.addAll(plexService.fetchWatchlistFromRss(url));
         }
 
-        if (watchlist.isEmpty()) return;
+        if (watchlist.isEmpty()) {
+            return;
+        }
 
-        var existingMovies = radarrService.fetchMovies(config.radarr(), config.radarr().bypassIgnored());
-        var existingSeries = sonarrService.fetchSeries(config.sonarr(), config.sonarr().bypassIgnored());
-        var existingAll = new HashSet<Item>();
+        Set<Item> existingMovies = radarrService.fetchMovies(config.radarr(), config.radarr().bypassIgnored());
+        Set<Item> existingSeries = sonarrService.fetchSeries(config.sonarr(), config.sonarr().bypassIgnored());
+        Set<Item> existingAll = new HashSet<>();
         existingAll.addAll(existingMovies);
         existingAll.addAll(existingSeries);
 
-        for (var watched : watchlist) {
+        for (Item watched : watchlist) {
             boolean alreadyExists = existingAll.stream().anyMatch(e -> e.matches(watched));
             if (alreadyExists) {
                 log.debug("{} \"{}\" already exists in Sonarr/Radarr", watched.category, watched.title);
@@ -60,7 +62,8 @@ public class RssSync {
                     if (watched.getTvdbId().isPresent()) {
                         log.debug("Found show \"{}\" which does not exist yet in Sonarr", watched.title);
                         sonarrService.addToSonarr(config.sonarr(), watched);
-                    } else {
+                    }
+                    else {
                         log.debug("Found show \"{}\" with no tvdb ID, skipping", watched.title);
                     }
                 }
@@ -68,7 +71,8 @@ public class RssSync {
                     if (watched.getTmdbId().isPresent()) {
                         log.debug("Found movie \"{}\" which does not exist yet in Radarr", watched.title);
                         radarrService.addToRadarr(config.radarr(), watched);
-                    } else {
+                    }
+                    else {
                         log.debug("Found movie \"{}\" with no tmdb ID, skipping", watched.title);
                     }
                 }

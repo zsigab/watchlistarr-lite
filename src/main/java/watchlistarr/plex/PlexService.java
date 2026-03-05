@@ -1,5 +1,6 @@
 package watchlistarr.plex;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
@@ -24,12 +25,13 @@ public class PlexService {
     // ── Ping ─────────────────────────────────────────────────────────────────
 
     public void ping(PlexConfig config) {
-        for (var token : config.tokens()) {
-            var url = "https://plex.tv/api/v2/ping?X-Plex-Token=" + token + "&X-Plex-Client-Identifier=watchlistarr";
-            var result = http.get(url);
+        for (String token : config.tokens()) {
+            String url = "https://plex.tv/api/v2/ping?X-Plex-Token=" + token + "&X-Plex-Client-Identifier=watchlistarr";
+            Optional<JsonNode> result = http.get(url);
             if (result.isPresent()) {
                 log.info("Pinged plex.tv to update access token expiry");
-            } else {
+            }
+            else {
                 log.warn("Unable to ping plex.tv to update access token expiry");
             }
         }
@@ -38,17 +40,18 @@ public class PlexService {
     // ── RSS watchlist ─────────────────────────────────────────────────────────
 
     public Set<Item> fetchWatchlistFromRss(String url) {
-        var cacheBuster = UUID.randomUUID().toString().substring(0, 12);
-        var fullUrl = url + (url.contains("?") ? "&" : "?") + "format=json&cache_buster=" + cacheBuster;
-        var result = http.get(fullUrl);
+        String cacheBuster = UUID.randomUUID().toString().substring(0, 12);
+        String fullUrl = url + (url.contains("?") ? "&" : "?") + "format=json&cache_buster=" + cacheBuster;
+        Optional<JsonNode> result = http.get(fullUrl);
         if (result.isEmpty()) {
             log.warn("Unable to fetch watchlist from Plex (RSS)");
             return Set.of();
         }
         try {
-            var watchlist = http.getMapper().treeToValue(result.get(), Watchlist.class);
+            Watchlist watchlist = http.getMapper().treeToValue(result.get(), Watchlist.class);
             return watchlist.items != null ? watchlist.items : Set.of();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Unable to decode RSS watchlist from Plex: {}", e.getMessage());
             return Set.of();
         }
@@ -58,34 +61,37 @@ public class PlexService {
 
     public Set<Item> getSelfWatchlist(PlexConfig config) {
         Set<Item> all = new HashSet<>();
-        for (var token : config.tokens()) {
+        for (String token : config.tokens()) {
             all.addAll(getSelfWatchlistForToken(config, token, 0));
         }
         return all;
     }
 
     private Set<Item> getSelfWatchlistForToken(PlexConfig config, String token, int start) {
-        var url = "https://discover.provider.plex.tv/library/sections/watchlist/all"
+        String url = "https://discover.provider.plex.tv/library/sections/watchlist/all"
             + "?X-Plex-Token=" + token
             + "&X-Plex-Container-Start=" + start
             + "&X-Plex-Container-Size=" + CONTAINER_SIZE;
 
-        var result = http.get(url);
+        Optional<JsonNode> result = http.get(url);
         if (result.isEmpty()) {
             log.warn("Unable to fetch self watchlist from Plex token");
             return Set.of();
         }
         try {
-            var watchlist = http.getMapper().treeToValue(result.get(), TokenWatchlist.class);
-            var container = watchlist.MediaContainer;
-            if (container == null) return Set.of();
+            TokenWatchlist watchlist = http.getMapper().treeToValue(result.get(), TokenWatchlist.class);
+            MediaContainer container = watchlist.MediaContainer;
+            if (container == null) {
+                return Set.of();
+            }
 
-            var items = toItems(config, container.Metadata);
+            Set<Item> items = toItems(config, container.Metadata);
             if (container.totalSize > start + CONTAINER_SIZE) {
                 items.addAll(getSelfWatchlistForToken(config, token, start + CONTAINER_SIZE));
             }
             return items;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Unable to decode self watchlist from Plex: {}", e.getMessage());
             return Set.of();
         }
@@ -94,12 +100,12 @@ public class PlexService {
     // ── Others' watchlists (GraphQL, paginated) ───────────────────────────────
 
     public Set<Item> getOthersWatchlist(PlexConfig config) {
-        var friends = getFriends(config);
+        Map<User, String> friends = getFriends(config);
         Set<Item> all = new HashSet<>();
-        for (var entry : friends.entrySet()) {
-            var friend = entry.getKey();
-            var token  = entry.getValue();
-            var watchlistItems = getWatchlistIdsForUser(config, token, friend, null);
+        for (Map.Entry<User, String> entry : friends.entrySet()) {
+            User friend = entry.getKey();
+            String token  = entry.getValue();
+            Set<TokenWatchlistItem> watchlistItems = getWatchlistIdsForUser(config, token, friend, null);
             all.addAll(toItemsFromWatchlistItems(config, watchlistItems));
         }
         return all;
@@ -107,24 +113,28 @@ public class PlexService {
 
     private Map<User, String> getFriends(PlexConfig config) {
         Map<User, String> friends = new LinkedHashMap<>();
-        for (var token : config.tokens()) {
-            var url = "https://community.plex.tv/api";
-            var query = new GraphQLQuery(
+        for (String token : config.tokens()) {
+            String url = "https://community.plex.tv/api";
+            GraphQLQuery query = new GraphQLQuery(
                 """
                 query GetAllFriends {
                   allFriendsV2 {
                     user { id username }
                   }
                 }""");
-            var result = http.post(url, token, query);
-            if (result.isEmpty()) { log.warn("Unable to fetch friends from Plex"); continue; }
+            Optional<JsonNode> result = http.post(url, token, query);
+            if (result.isEmpty()) {
+                log.warn("Unable to fetch friends from Plex");
+                continue;
+            }
             try {
-                var users = http.getMapper().treeToValue(result.get(), Users.class);
+                Users users = http.getMapper().treeToValue(result.get(), Users.class);
                 users.data.allFriendsV2.stream()
                     .map(f -> f.user)
                     .filter(Objects::nonNull)
                     .forEach(u -> friends.put(u, token));
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.warn("Unable to decode friends response: {}", e.getMessage());
             }
         }
@@ -132,12 +142,12 @@ public class PlexService {
     }
 
     private Set<TokenWatchlistItem> getWatchlistIdsForUser(PlexConfig config, String token, User user, String cursor) {
-        var url = "https://community.plex.tv/api";
-        var variables = cursor == null
+        String url = "https://community.plex.tv/api";
+        Map<String, Object> variables = cursor == null
             ? Map.of("first", 100, "uuid", user.id)
             : Map.of("first", 100, "uuid", user.id, "after", cursor);
 
-        var query = new GraphQLQuery("""
+        GraphQLQuery query = new GraphQLQuery("""
             query GetWatchlistHub ($uuid: ID = "", $first: PaginationInt!, $after: String) {
               user(id: $uuid) {
                 watchlist(first: $first, after: $after) {
@@ -148,19 +158,23 @@ public class PlexService {
             }
             fragment itemFields on MetadataItem { id title type }""", variables);
 
-        var result = http.post(url, token, query);
-        if (result.isEmpty()) { log.warn("Unable to fetch watchlist for user {}", user.username); return Set.of(); }
+        Optional<JsonNode> result = http.post(url, token, query);
+        if (result.isEmpty()) {
+            log.warn("Unable to fetch watchlist for user {}", user.username);
+            return Set.of();
+        }
         try {
-            var response = http.getMapper().treeToValue(result.get(), TokenWatchlistFriend.class);
-            var watchlist = response.data.user.watchlist;
-            var items = watchlist.nodes.stream()
+            TokenWatchlistFriend response = http.getMapper().treeToValue(result.get(), TokenWatchlistFriend.class);
+            WatchlistNodes watchlist = response.data.user.watchlist;
+            Set<TokenWatchlistItem> items = watchlist.nodes.stream()
                     .map(WatchlistNode::toTokenWatchlistItem)
                     .collect(Collectors.toCollection(HashSet::new));
             if (watchlist.pageInfo.hasNextPage && watchlist.pageInfo.endCursor != null && !watchlist.pageInfo.endCursor.isBlank()) {
                 items.addAll(getWatchlistIdsForUser(config, token, user, watchlist.pageInfo.endCursor));
             }
             return items;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Unable to decode watchlist for user {}: {}", user.username, e.getMessage());
             return Set.of();
         }
@@ -169,11 +183,12 @@ public class PlexService {
     // ── Item resolution (metadata lookup) ────────────────────────────────────
 
     private Set<Item> toItems(PlexConfig config, List<TokenWatchlistItem> rawItems) {
-        var result = new HashSet<Item>();
-        for (var raw : rawItems) {
+        Set<Item> result = new HashSet<>();
+        for (TokenWatchlistItem raw : rawItems) {
             try {
                 result.add(resolveItem(config, raw));
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.warn("Found item {} on the watchlist, but cannot find it in Plex's database", raw.title);
             }
         }
@@ -185,19 +200,22 @@ public class PlexService {
     }
 
     private Item resolveItem(PlexConfig config, TokenWatchlistItem raw) {
-        var key = cleanKey(raw.key);
-        var token = config.tokens().stream().findFirst().orElse("unknown");
-        var url = "https://discover.provider.plex.tv" + key + "?X-Plex-Token=" + token;
-        var result = http.get(url);
-        if (result.isEmpty()) throw new RuntimeException("No response from Plex metadata for " + raw.title);
+        String key = cleanKey(raw.key);
+        String token = config.tokens().stream().findFirst().orElse("unknown");
+        String url = "https://discover.provider.plex.tv" + key + "?X-Plex-Token=" + token;
+        Optional<JsonNode> result = http.get(url);
+        if (result.isEmpty()) {
+            throw new RuntimeException("No response from Plex metadata for " + raw.title);
+        }
         try {
-            var watchlist = http.getMapper().treeToValue(result.get(), TokenWatchlist.class);
-            var guids = watchlist.MediaContainer.Metadata.stream()
+            TokenWatchlist watchlist = http.getMapper().treeToValue(result.get(), TokenWatchlist.class);
+            List<String> guids = watchlist.MediaContainer.Metadata.stream()
                 .flatMap(m -> m.Guid.stream())
                 .map(g -> g.id)
                 .collect(Collectors.toList());
             return new Item(raw.title, guids, raw.type, null);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to decode metadata for " + raw.title + ": " + e.getMessage());
         }
     }
