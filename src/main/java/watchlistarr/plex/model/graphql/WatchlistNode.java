@@ -1,5 +1,7 @@
-package watchlistarr.plex.model;
+package watchlistarr.plex.model.graphql;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import watchlistarr.plex.model.rest.TokenWatchlistItem;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class WatchlistNode {

@@ -9,7 +9,9 @@ import watchlistarr.config.PlexConfig;
 import watchlistarr.http.HttpService;
 import watchlistarr.model.GraphQLQuery;
 import watchlistarr.model.Item;
-import watchlistarr.plex.model.*;
+import watchlistarr.plex.model.graphql.*;
+import watchlistarr.plex.model.rest.*;
+import watchlistarr.plex.model.rss.*;
 
 import java.util.*;
 import java.util.stream.Collectors;

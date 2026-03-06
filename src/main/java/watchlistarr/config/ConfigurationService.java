@@ -10,7 +10,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import watchlistarr.http.HttpService;
-import watchlistarr.plex.model.RssFeedGenerated;
+import watchlistarr.plex.model.rss.RssFeedGenerated;
 
 import java.util.*;
 import java.util.stream.Collectors;
