@@ -9,8 +9,6 @@ import watchlistarr.config.AppConfig;
 import watchlistarr.config.ConfigurationService;
 import watchlistarr.model.Item;
 import watchlistarr.plex.PlexService;
-import watchlistarr.radarr.RadarrService;
-import watchlistarr.sonarr.SonarrService;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -22,8 +20,7 @@ public class RssSync {
 
     @Inject ConfigurationService configService;
     @Inject PlexService plexService;
-    @Inject SonarrService sonarrService;
-    @Inject RadarrService radarrService;
+    @Inject SyncHelper syncHelper;
 
     @Scheduled(every = "${refresh.interval-seconds:60}s", delayed = "0s")
     void run() {
@@ -45,39 +42,6 @@ public class RssSync {
             return;
         }
 
-        Set<Item> existingMovies = radarrService.fetchMovies(config.radarr(), config.radarr().bypassIgnored());
-        Set<Item> existingSeries = sonarrService.fetchSeries(config.sonarr(), config.sonarr().bypassIgnored());
-        Set<Item> existingAll = new HashSet<>();
-        existingAll.addAll(existingMovies);
-        existingAll.addAll(existingSeries);
-
-        for (Item watched : watchlist) {
-            boolean alreadyExists = existingAll.stream().anyMatch(e -> e.matches(watched));
-            if (alreadyExists) {
-                log.debug("{} \"{}\" already exists in Sonarr/Radarr", watched.category, watched.title);
-                continue;
-            }
-            switch (watched.category) {
-                case "show" -> {
-                    if (watched.getTvdbId().isPresent()) {
-                        log.debug("Found show \"{}\" which does not exist yet in Sonarr", watched.title);
-                        sonarrService.addToSonarr(config.sonarr(), watched);
-                    }
-                    else {
-                        log.debug("Found show \"{}\" with no tvdb ID, skipping", watched.title);
-                    }
-                }
-                case "movie" -> {
-                    if (watched.getTmdbId().isPresent()) {
-                        log.debug("Found movie \"{}\" which does not exist yet in Radarr", watched.title);
-                        radarrService.addToRadarr(config.radarr(), watched);
-                    }
-                    else {
-                        log.debug("Found movie \"{}\" with no tmdb ID, skipping", watched.title);
-                    }
-                }
-                default -> log.warn("Found \"{}\" with unrecognised category: {}", watched.title, watched.category);
-            }
-        }
+        syncHelper.processWatchlist(config, watchlist);
     }
 }

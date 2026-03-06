@@ -44,10 +44,10 @@ public class RadarrService {
         );
         Optional<JsonNode> result = http.post(config.baseUrl() + "/api/v3/movie", config.apiKey(), post);
         if (result.isPresent()) {
-            log.info("Sent {} to Radarr", item.title);
+            log.info("Sent {} to Radarr on behalf of {}", item.title, item.username);
         }
         else {
-            log.debug("Received warning for sending {} to Radarr", item.title);
+            log.warn("Received warning for sending {} to Radarr", item.title);
         }
     }
 
@@ -71,7 +71,7 @@ public class RadarrService {
             guids.add("tmdb://" + m.tmdbId);
         }
         guids.add("radarr://" + m.id);
-        return new Item(m.title, guids, "movie", null);
+        return new Item(m.title, guids, "movie", null, null);
     }
 
     private Item toMovieItem(RadarrMovieExclusion e) {

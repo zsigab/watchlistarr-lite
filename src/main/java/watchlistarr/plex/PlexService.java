@@ -49,7 +49,10 @@ public class PlexService {
         }
         try {
             Watchlist watchlist = http.getMapper().treeToValue(result.get(), Watchlist.class);
-            return watchlist.items != null ? watchlist.items : Set.of();
+
+            return watchlist.items.stream()
+                    .map(item -> new Item(item.title, item.guids, item.category, null, "self"))
+                    .collect(Collectors.toSet());
         }
         catch (Exception e) {
             log.warn("Unable to decode RSS watchlist from Plex: {}", e.getMessage());
@@ -60,11 +63,9 @@ public class PlexService {
     // ── Self watchlist (token-based, paginated) ───────────────────────────────
 
     public Set<Item> getSelfWatchlist(PlexConfig config) {
-        Set<Item> all = new HashSet<>();
-        for (String token : config.tokens()) {
-            all.addAll(getSelfWatchlistForToken(config, token, 0));
-        }
-        return all;
+        return config.tokens().stream()
+            .flatMap(token -> getSelfWatchlistForToken(config, token, 0).stream())
+            .collect(Collectors.toSet());
     }
 
     private Set<Item> getSelfWatchlistForToken(PlexConfig config, String token, int start) {
@@ -84,8 +85,7 @@ public class PlexService {
             if (container == null) {
                 return Set.of();
             }
-
-            Set<Item> items = toItems(config, container.Metadata);
+            Set<Item> items = toItems(config, container.Metadata, "self");
             if (container.totalSize > start + CONTAINER_SIZE) {
                 items.addAll(getSelfWatchlistForToken(config, token, start + CONTAINER_SIZE));
             }
@@ -106,7 +106,7 @@ public class PlexService {
             User friend = entry.getKey();
             String token  = entry.getValue();
             Set<TokenWatchlistItem> watchlistItems = getWatchlistIdsForUser(config, token, friend, null);
-            all.addAll(toItemsFromWatchlistItems(config, watchlistItems));
+            all.addAll(toItemsFromWatchlistItems(config, watchlistItems, friend.username));
         }
         return all;
     }
@@ -166,9 +166,11 @@ public class PlexService {
         try {
             TokenWatchlistFriend response = http.getMapper().treeToValue(result.get(), TokenWatchlistFriend.class);
             WatchlistNodes watchlist = response.data.user.watchlist;
+
             Set<TokenWatchlistItem> items = watchlist.nodes.stream()
                     .map(WatchlistNode::toTokenWatchlistItem)
                     .collect(Collectors.toCollection(HashSet::new));
+
             if (watchlist.pageInfo.hasNextPage && watchlist.pageInfo.endCursor != null && !watchlist.pageInfo.endCursor.isBlank()) {
                 items.addAll(getWatchlistIdsForUser(config, token, user, watchlist.pageInfo.endCursor));
             }
@@ -182,11 +184,11 @@ public class PlexService {
 
     // ── Item resolution (metadata lookup) ────────────────────────────────────
 
-    private Set<Item> toItems(PlexConfig config, List<TokenWatchlistItem> rawItems) {
+    private Set<Item> toItems(PlexConfig config, List<TokenWatchlistItem> rawItems, String username) {
         Set<Item> result = new HashSet<>();
         for (TokenWatchlistItem raw : rawItems) {
             try {
-                result.add(resolveItem(config, raw));
+                result.add(resolveItem(config, raw, username));
             }
             catch (Exception e) {
                 log.warn("Found item {} on the watchlist, but cannot find it in Plex's database", raw.title);
@@ -195,11 +197,11 @@ public class PlexService {
         return result;
     }
 
-    private Set<Item> toItemsFromWatchlistItems(PlexConfig config, Set<TokenWatchlistItem> rawItems) {
-        return toItems(config, new ArrayList<>(rawItems));
+    private Set<Item> toItemsFromWatchlistItems(PlexConfig config, Set<TokenWatchlistItem> rawItems, String username) {
+        return toItems(config, new ArrayList<>(rawItems), username);
     }
 
-    private Item resolveItem(PlexConfig config, TokenWatchlistItem raw) {
+    private Item resolveItem(PlexConfig config, TokenWatchlistItem raw, String username) {
         String key = cleanKey(raw.key);
         String token = config.tokens().stream().findFirst().orElse("unknown");
         String url = "https://discover.provider.plex.tv" + key + "?X-Plex-Token=" + token;
@@ -213,7 +215,7 @@ public class PlexService {
                 .flatMap(m -> m.Guid.stream())
                 .map(g -> g.id)
                 .collect(Collectors.toList());
-            return new Item(raw.title, guids, raw.type, null);
+            return new Item(raw.title, guids, raw.type, null, username);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to decode metadata for " + raw.title + ": " + e.getMessage());

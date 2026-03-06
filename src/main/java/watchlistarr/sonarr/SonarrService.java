@@ -47,10 +47,10 @@ public class SonarrService {
         );
         Optional<JsonNode> result = http.post(config.baseUrl() + "/api/v3/series", config.apiKey(), post);
         if (result.isPresent()) {
-            log.info("Sent {} to Sonarr", item.title);
+            log.info("Sent {} to Sonarr on behalf of {}", item.title, item.username);
         }
         else {
-            log.debug("Received warning for sending {} to Sonarr", item.title);
+            log.warn("Received warning for sending {} to Sonarr", item.title);
         }
     }
 
@@ -74,7 +74,7 @@ public class SonarrService {
             guids.add("tvdb://" + s.tvdbId);
         }
         guids.add("sonarr://" + s.id);
-        return new Item(s.title, guids, "show", s.ended);
+        return new Item(s.title, guids, "show", s.ended, null);
     }
 
     private <T> T getArr(String baseUrl, String apiKey, String endpoint, TypeReference<T> type) {

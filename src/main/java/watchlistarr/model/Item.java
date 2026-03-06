@@ -11,14 +11,16 @@ public class Item {
     public List<String> guids;
     public String category;
     public Boolean ended;
+    public String username;
 
     public Item() {}
 
-    public Item(String title, List<String> guids, String category, Boolean ended) {
+    public Item(String title, List<String> guids, String category, Boolean ended, String username) {
         this.title = title;
         this.guids = guids;
         this.category = category;
         this.ended = ended;
+        this.username = username;
     }
 
     public Optional<Long> getTvdbId()   { return extractId("tvdb://"); }
@@ -57,6 +59,6 @@ public class Item {
 
     @Override
     public String toString() {
-        return "Item{title='" + title + "', category='" + category + "', ended=" + ended + "}";
+        return "Item{title='" + title + "', category='" + category + "', ended=" + ended + ", username=" + username + "}";
     }
 }
