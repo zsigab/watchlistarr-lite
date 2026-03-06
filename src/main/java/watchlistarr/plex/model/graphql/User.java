@@ -1,8 +1,10 @@
-package watchlistarr.plex.model;
+package watchlistarr.plex.model.graphql;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Guid {
+public class User {
     public String id;
-    public Guid() {}
+    public String username;
+    public User() {}
 }

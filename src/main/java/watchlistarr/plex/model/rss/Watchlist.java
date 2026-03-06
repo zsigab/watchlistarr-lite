@@ -1,4 +1,4 @@
-package watchlistarr.plex.model;
+package watchlistarr.plex.model.rss;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;

@@ -1,4 +1,5 @@
-package watchlistarr.plex.model;
+package watchlistarr.plex.model.graphql;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Optional;
 
