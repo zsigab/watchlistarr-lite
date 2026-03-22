@@ -1,39 +1,48 @@
-name: Test and Release
+name: Test and Release JAR
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   release:
-    types: [ published ]
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
 
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '21'
           distribution: 'temurin'
-          cache: 'sbt'
-      - name: sbt validation
-        run: sbt "scalafmtSbtCheck; scalafmtCheckAll; dependencyUpdatesFailBuild; unusedCompileDependenciesTest; undeclaredCompileDependenciesTest; test"
-      - name: Build fat JAR
-        run: sbt assembly
-      - name: Rename fat JAR
-        if: startsWith(github.ref, 'refs/tags/')
-        run: cp ./target/scala-2.13/watchlistarr-assembly-0.1.0-SNAPSHOT.jar ./target/scala-2.13/watchlistarr.jar
-      - name: Upload JAR to GitHub Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+          cache: 'maven'
+      - name: Run tests
+        run: mvn test
+
+  release-jar:
+    if: github.event_name == 'release'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          files: ./target/scala-2.13/watchlistarr.jar
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Set version from tag
+        run: mvn versions:set -DnewVersion=${GITHUB_REF#refs/tags/v} -DgenerateBackupPoms=false
+      - name: Build uber-jar
+        run: mvn package -DskipTests -Dquarkus.package.jar.type=uber-jar
+      - name: Upload JAR to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/*-runner.jar
