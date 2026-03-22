@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import watchlistarr.config.SonarrConfig;
 import watchlistarr.http.HttpService;
 import watchlistarr.model.Item;
+import watchlistarr.utils.PagingUtil;
 import watchlistarr.sonarr.model.SonarrAddOptions;
 import watchlistarr.sonarr.model.SonarrPost;
 import watchlistarr.sonarr.model.SonarrSeries;
@@ -27,8 +28,7 @@ public class SonarrService {
         });
         List<SonarrSeries> exclusions = bypass
             ? List.of()
-            : getArr(config.baseUrl(), config.apiKey(), "importlistexclusion", new TypeReference<>() {
-        });
+            : PagingUtil.getAllPaged(http, config.baseUrl(), config.apiKey(), "importlistexclusion", new TypeReference<List<SonarrSeries>>() {});
 
         Set<Item> result = new HashSet<>();
         Objects.requireNonNull(shows).stream().map(this::toItem).forEach(result::add);

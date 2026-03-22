@@ -37,7 +37,8 @@ class RadarrServiceTest {
     @Test void fetchMovies_returnsMappedItems() throws Exception {
         var json = loadJson("radarr.json");
         when(http.get("http://localhost:7878/api/v3/movie", "test-api-key")).thenReturn(Optional.of(json));
-        when(http.get("http://localhost:7878/api/v3/exclusions", "test-api-key")).thenReturn(Optional.of(mapper.createArrayNode()));
+        when(http.get("http://localhost:7878/api/v3/exclusions/paged?page=1&pageSize=1000", "test-api-key"))
+            .thenReturn(Optional.of(mapper.readTree("{\"totalRecords\":0,\"records\":[]}")));
 
         Set<Item> result = radarrService.fetchMovies(config, false);
 
@@ -58,7 +59,7 @@ class RadarrServiceTest {
         var movies = loadJson("radarr.json");
         var exclusions = loadJson("exclusions.json");
         when(http.get("http://localhost:7878/api/v3/movie", "test-api-key")).thenReturn(Optional.of(movies));
-        when(http.get("http://localhost:7878/api/v3/exclusions", "test-api-key")).thenReturn(Optional.of(exclusions));
+        when(http.get("http://localhost:7878/api/v3/exclusions/paged?page=1&pageSize=1000", "test-api-key")).thenReturn(Optional.of(exclusions));
 
         Set<Item> result = radarrService.fetchMovies(config, false);
         assertFalse(result.isEmpty());

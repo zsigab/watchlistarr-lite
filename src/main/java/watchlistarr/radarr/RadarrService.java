@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import watchlistarr.config.RadarrConfig;
 import watchlistarr.http.HttpService;
 import watchlistarr.model.Item;
+import watchlistarr.utils.PagingUtil;
 import watchlistarr.radarr.model.RadarrMovie;
 import watchlistarr.radarr.model.RadarrMovieExclusion;
 import watchlistarr.radarr.model.RadarrPost;
@@ -23,10 +24,12 @@ public class RadarrService {
     @Inject HttpService http;
 
     public Set<Item> fetchMovies(RadarrConfig config, boolean bypass) {
-        List<RadarrMovie> movies = getArr(config.baseUrl(), config.apiKey(), "movie", new TypeReference<List<RadarrMovie>>() {});
+        List<RadarrMovie> movies = getArr(config.baseUrl(), config.apiKey(), "movie", new TypeReference<>() {
+        });
         List<RadarrMovieExclusion> exclusions = bypass
-            ? List.<RadarrMovieExclusion>of()
-            : getArr(config.baseUrl(), config.apiKey(), "exclusions", new TypeReference<List<RadarrMovieExclusion>>() {});
+            ? List.of()
+            : PagingUtil.getAllPaged(http, config.baseUrl(), config.apiKey(), "exclusions", new TypeReference<>() {
+        });
 
         Set<Item> result = new HashSet<>();
         Objects.requireNonNull(movies).stream().map(this::toItem).forEach(result::add);
