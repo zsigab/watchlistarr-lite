@@ -38,7 +38,8 @@ class SonarrServiceTest {
     @Test void fetchSeries_returnsMappedItems() throws Exception {
         var json = loadJson("sonarr.json");
         when(http.get("http://localhost:8989/api/v3/series", "test-api-key")).thenReturn(Optional.of(json));
-        when(http.get("http://localhost:8989/api/v3/importlistexclusion", "test-api-key")).thenReturn(Optional.of(mapper.createArrayNode()));
+        when(http.get("http://localhost:8989/api/v3/importlistexclusion/paged?page=1&pageSize=1000", "test-api-key"))
+            .thenReturn(Optional.of(mapper.readTree("{\"totalRecords\":0,\"records\":[]}")));
 
         Set<Item> result = sonarrService.fetchSeries(config, false);
 
@@ -59,7 +60,7 @@ class SonarrServiceTest {
         var series = loadJson("sonarr.json");
         var exclusions = loadJson("importlistexclusion.json");
         when(http.get("http://localhost:8989/api/v3/series", "test-api-key")).thenReturn(Optional.of(series));
-        when(http.get("http://localhost:8989/api/v3/importlistexclusion", "test-api-key")).thenReturn(Optional.of(exclusions));
+        when(http.get("http://localhost:8989/api/v3/importlistexclusion/paged?page=1&pageSize=1000", "test-api-key")).thenReturn(Optional.of(exclusions));
 
         Set<Item> result = sonarrService.fetchSeries(config, false);
         assertFalse(result.isEmpty());

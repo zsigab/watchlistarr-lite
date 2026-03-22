@@ -1,7 +1,10 @@
-[
-  {
-    "tvdbId": 372848,
-    "title": "The Test",
-    "id": 1
-  }
-]
+{
+  "totalRecords": 1,
+  "records": [
+    {
+      "tvdbId": 372848,
+      "title": "The Test",
+      "id": 1
+    }
+  ]
+}
