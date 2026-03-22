@@ -118,14 +118,13 @@ public class ConfigurationService {
 
         String rootFolder = fetchRootFolder(url, apiKey, readString(sonarrRootFolder, "sonarr.root-folder", ""), "Sonarr");
         int qualityProfileId = fetchQualityProfile(url, apiKey, readString(sonarrQualityProfile, "sonarr.quality-profile", ""), "Sonarr");
-        int languageProfileId = fetchLanguageProfile(url, apiKey);
         Set<Integer> tagIds = resolveTags(url, apiKey, readString(sonarrTags, "sonarr.tags", ""));
         log.info("Successfully connected to Sonarr at {}", url);
 
         return new SonarrConfig(url, apiKey, qualityProfileId, rootFolder,
             readBoolean(sonarrBypassIgnored, "sonarr.bypass-ignored", false),
             readString(sonarrSeasonMonitoring, "sonarr.season-monitoring", "all"),
-            languageProfileId, tagIds);
+            tagIds);
     }
 
     private RadarrConfig resolveRadarr() {
@@ -246,22 +245,6 @@ public class ConfigurationService {
             .orElseGet(() -> error("Quality profile '" + preferred + "' not found in " + app));
     }
 
-    private int fetchLanguageProfile(String baseUrl, String apiKey) {
-        Optional<JsonNode> result = http.get(baseUrl + "/api/v3/languageprofile", apiKey);
-        if (result.isEmpty()) {
-            log.warn("Unable to find language profile, using 1 as default");
-            return 1;
-        }
-        try {
-            List<LanguageProfile> profiles = http.getMapper().convertValue(result.get(), new TypeReference<List<LanguageProfile>>() {});
-            return profiles.isEmpty() ? 1 : profiles.getFirst().id;
-        }
-        catch (Exception e) {
-            log.warn("Unable to parse language profiles, using 1 as default");
-            return 1;
-        }
-    }
-
     private Set<Integer> resolveTags(String baseUrl, String apiKey, String tagsConfig) {
         if (tagsConfig.isBlank()) {
             return Set.of();
@@ -378,7 +361,7 @@ Configuration:
   Sonarr:
     baseUrl: %s  apiKey: REDACTED
     qualityProfileId: %d  rootFolder: %s
-    bypassIgnored: %s  languageProfileId: %d  tagIds: %s
+    bypassIgnored: %s  tagIds: %s
 
   Radarr:
     baseUrl: %s  apiKey: REDACTED
@@ -395,7 +378,7 @@ Configuration:
 """.formatted(
                 c.refreshIntervalSeconds(),
                 c.sonarr().baseUrl(), c.sonarr().qualityProfileId(), c.sonarr().rootFolder(),
-                c.sonarr().bypassIgnored(), c.sonarr().languageProfileId(), c.sonarr().tagIds(),
+                c.sonarr().bypassIgnored(), c.sonarr().tagIds(),
                 c.radarr().baseUrl(), c.radarr().qualityProfileId(), c.radarr().rootFolder(),
                 c.radarr().bypassIgnored(), c.radarr().tagIds(),
                 c.plex().watchlistUrls(), c.plex().tokens().size(), c.plex().skipFriendSync(), c.plex().hasPlexPass(),
