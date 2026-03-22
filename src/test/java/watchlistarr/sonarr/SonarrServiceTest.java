@@ -28,7 +28,7 @@ class SonarrServiceTest {
 
     private ObjectMapper mapper = new ObjectMapper();
     private SonarrConfig config = new SonarrConfig(
-        "http://localhost:8989", "test-api-key", 1, "/shows", false, "all", 1, Set.of()
+        "http://localhost:8989", "test-api-key", 1, "/shows", false, "all", Set.of()
     );
 
     @BeforeEach void setup() {

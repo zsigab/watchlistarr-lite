@@ -25,7 +25,7 @@ class SyncHelperTest {
     @InjectMocks SyncHelper syncHelper;
 
     private AppConfig buildConfig() {
-        var sonarr = new SonarrConfig("http://localhost:8989", "key", 1, "/shows", false, "all", 1, Set.of());
+        var sonarr = new SonarrConfig("http://localhost:8989", "key", 1, "/shows", false, "all", Set.of());
         var radarr = new RadarrConfig("http://localhost:7878", "key", 1, "/movies", false, Set.of());
         var plex   = new PlexConfig(Set.of(), Set.of("token"), false, true);
         var delete = new DeleteConfig(false, false, false, 7, true);

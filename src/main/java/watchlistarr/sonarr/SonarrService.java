@@ -23,10 +23,12 @@ public class SonarrService {
     @Inject HttpService http;
 
     public Set<Item> fetchSeries(SonarrConfig config, boolean bypass) {
-        List<SonarrSeries> shows = getArr(config.baseUrl(), config.apiKey(), "series", new TypeReference<List<SonarrSeries>>() {});
+        List<SonarrSeries> shows = getArr(config.baseUrl(), config.apiKey(), "series", new TypeReference<>() {
+        });
         List<SonarrSeries> exclusions = bypass
-            ? List.<SonarrSeries>of()
-            : getArr(config.baseUrl(), config.apiKey(), "importlistexclusion", new TypeReference<List<SonarrSeries>>() {});
+            ? List.of()
+            : getArr(config.baseUrl(), config.apiKey(), "importlistexclusion", new TypeReference<>() {
+        });
 
         Set<Item> result = new HashSet<>();
         Objects.requireNonNull(shows).stream().map(this::toItem).forEach(result::add);
@@ -39,10 +41,9 @@ public class SonarrService {
         SonarrPost post = new SonarrPost(
             item.title,
             item.getTvdbId().orElse(0L),
-                config.qualityProfileId(),
-                config.rootFolder(),
+            config.qualityProfileId(),
+            config.rootFolder(),
             addOptions,
-                config.languageProfileId(),
             new ArrayList<>(config.tagIds())
         );
         Optional<JsonNode> result = http.post(config.baseUrl() + "/api/v3/series", config.apiKey(), post);

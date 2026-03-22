@@ -1,7 +1,6 @@
 package watchlistarr;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
-import watchlistarr.config.LanguageProfile;
 import watchlistarr.config.QualityProfile;
 import watchlistarr.config.RootFolder;
 import watchlistarr.model.GraphQLQuery;
@@ -40,7 +39,6 @@ import watchlistarr.sonarr.model.SonarrSeries;
     // Config models (Jackson-deserialized from API responses)
     QualityProfile.class,
     RootFolder.class,
-    LanguageProfile.class,
 
     // Plex RSS models
     RssItem.class,
