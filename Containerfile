@@ -4,10 +4,10 @@ FROM quay.io/quarkus/ubi-quarkus-graalvmce-builder-image:jdk-21 AS build
 USER root
 COPY --from=maven:3.9 /usr/share/maven /usr/share/maven
 RUN ln -sf /usr/share/maven/bin/mvn /usr/local/bin/mvn
+USER quarkus
 
 WORKDIR /code
 COPY --chown=quarkus:quarkus pom.xml .
-USER quarkus
 RUN mvn dependency:go-offline -q
 
 COPY --chown=quarkus:quarkus src ./src
